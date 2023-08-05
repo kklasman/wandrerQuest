@@ -719,8 +719,9 @@ app.layout = dbc.Container([
         # dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
         #         # align='center', style={"height": "100vh"}
         #         ),
-        dbc.Col(dbc.Spinner(children=[card_graph]), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
-        dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
+        dbc.Col(dcc.Loading(children=[card_graph], fullscreen=False), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
+        # dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
+        dbc.Col(dcc.Loading(children=[card_data], fullscreen=False), className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
     ],
         style={'flexGrow': '1'}
         # style={'overflowX': 'scroll'}
