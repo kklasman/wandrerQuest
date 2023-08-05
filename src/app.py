@@ -18,7 +18,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 app = Dash(__name__, suppress_callback_exceptions=True, external_stylesheets=[
     dbc.themes.SPACELAB, dbc.icons.FONT_AWESOME])
-# server = app.server
+server = app.server
 
 # app.config.supress_callback_exceptions = True
 
@@ -733,7 +733,7 @@ app.layout = dbc.Container([
 )
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
-    # app.run_server(debug=False)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
