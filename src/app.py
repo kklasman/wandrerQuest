@@ -18,6 +18,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 app = Dash(__name__, suppress_callback_exceptions=True, external_stylesheets=[
     dbc.themes.SPACELAB, dbc.icons.FONT_AWESOME])
+server = app.server
 
 # app.config.supress_callback_exceptions = True
 
@@ -405,7 +406,7 @@ def create_state_map(chosen_state, df_cleaned_summary):
     # counties['features'] = [f for f in counties['features'] if f['properties']['COUNTY'] in df_cleaned_summary.County.unique()]
     counties['features'] = [f for f in counties['features'] if
                             f['properties'][geoidPropertyName] in df_cleaned_summary[geoidPropertyName].unique()]
-    maxY = round(max(df_cleaned_summary['Actual Pct'].unique()), 1)
+    # maxY = round(max(df_cleaned_summary['Actual Pct'].unique()), 1)
 
     fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color='Actual Pct',
                                color_continuous_scale=my_color_scale,
@@ -1067,6 +1068,7 @@ app.layout = dbc.Container([
 )
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
