@@ -716,9 +716,10 @@ app.layout = dbc.Container([
     dbc.Row([dbc.Col(card_main_form, className="mx-1")
              ]),
     dbc.Row([
-        dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
-                # align='center', style={"height": "100vh"}
-                ),
+        # dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
+        #         # align='center', style={"height": "100vh"}
+        #         ),
+        dbc.Col(dbc.Spinner(children=[card_graph]), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
         dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
     ],
         style={'flexGrow': '1'}
