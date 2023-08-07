@@ -25,6 +25,12 @@ server = app.server
 percentage = FormatTemplate.percentage(2)
 fixed = Format(precision=2, scheme=Scheme.fixed)
 
+my_color_scale = ['white', 'gold', 'red']
+
+latitude = 44.18294737
+longitude = -69.25990211
+zoom = 7.75
+
 summary_columns = [
     dict(id='County', name='County'),
     dict(id='Total (mi)', name='Total Miles', type='numeric', format=fixed),
@@ -37,28 +43,11 @@ summary_columns = [
 
 
 def create_onedrive_directdownload(onedrive_link):
-    print('function create_onedrive_directdownload')
+    print('\nfunction create_onedrive_directdownload')
     data_bytes64 = base64.b64encode(bytes('https://' + onedrive_link, 'utf-8'))
     data_bytes64_String = data_bytes64.decode('utf-8').replace('/', '_').replace('+', '-').rstrip("=")
     resultUrl = f"https://api.onedrive.com/v1.0/shares/u!{data_bytes64_String}/root/content"
     return resultUrl
-
-
-def getStateWQData():
-    print('function getStateWQData')
-    df = pd.read_excel('../data/StateWQData.xlsx')
-    # usecols=[0, 2, 4, 7, 8, 20, 28], nrows=16)
-    print('\ndf:')
-    # print(df)
-    return df
-
-
-df_StateWQData = getStateWQData()
-
-states = df_StateWQData.State.unique()
-print(states)
-
-dict_state = {}
 
 
 def load_state_summary(selected_state):
@@ -80,6 +69,165 @@ def load_state_summary(selected_state):
     # print(df_summary)
 
     return df_summary
+
+
+def get_county_json(chosen_state):
+    print('\nfunction get_county_json for state ' + chosen_state)
+    if chosen_state == 'Maine':
+        r = open('../geojsonFiles/Maine_County_Boundaries.geojson.json')
+        # r = open('geojsonFiles/New_England_County_Boundaries.geojson.json')
+    elif chosen_state == 'New Hampshire':
+        r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
+    else:
+        r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
+
+    counties = json.load(r)
+    return counties
+
+
+def create_state_map(chosen_state, df_cleaned_summary):
+    print("\nfunction create_state_map: " + chosen_state)
+    df_state = df_StateWQData.loc[df_StateWQData.State == chosen_state]
+
+    latitude = df_state.iloc[0]['cLatitude']
+    longitude = df_state.iloc[0]['cLongitude']
+    zoom = df_state.iloc[0]['Zoom']
+    geoidPropertyName = df_state.iloc[0]['GeoidPropertyName']
+    # print('geoidPropertyName: ' + geoidPropertyName)
+
+    counties = get_county_json(chosen_state)
+
+    counties['features'] = [f for f in counties['features'] if
+                            f['properties'][geoidPropertyName] in df_cleaned_summary[geoidPropertyName].unique()]
+
+    fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color='Actual Pct',
+                               color_continuous_scale=my_color_scale,
+                               mapbox_style="carto-positron",
+                               zoom=zoom,
+                               center={"lat": latitude, "lon": longitude},
+                               opacity=0.75,
+                               range_color=[0, .4],
+                               hover_data=['County'],
+                               height=700
+                               )
+    fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+    return fig
+
+
+def create_region_map():
+    selected_state = 'New England'
+
+    df_summary = load_state_summary(selected_state)
+    # print(df_summary.County.unique())
+
+    # clean data for display in table
+    df_cleaned_summary = df_summary.dropna()
+    cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
+
+    # create state map
+    region_map = create_state_map(selected_state, df_cleaned_summary)
+    return region_map
+
+
+def getStateWQData():
+    print('function getStateWQData')
+    df = pd.read_excel('../data/StateWQData.xlsx')
+    # usecols=[0, 2, 4, 7, 8, 20, 28], nrows=16)
+    print('\ndf:')
+    # print(df)
+    return df
+
+df_StateWQData = getStateWQData()
+
+states = df_StateWQData.State.unique()
+print(states)
+
+dict_state = {}
+
+
+card_data = dbc.Card(
+    [
+        dbc.CardBody(
+            [
+                html.H4(id='data_card_header', children='This card contains data', className='card-title text-center'),
+                # dbc.CardImg(src="assets/20200926-12.jpg", top=True, bottom=False,
+                #             title="Image by Kevin Klasman", alt='Select a location to browse'),
+                # DataTable(id='table', data=[], columns=summary_columns, page_size=20)
+                # html.Div(id='table', children={})
+                html.Div(id='table'),
+                # DataTable(id='table'),
+                # dbc.Alert('Table cell clicked', id='out')
+            ]
+        )
+    ])
+
+
+card_main_form = dbc.Card(
+    dbc.CardBody(
+        dbc.Form([
+            html.H5("Select a location to browse", className="card-title"),
+            dbc.Row([
+                dbc.Label("Region", width='auto'),
+                dbc.Col(
+                    dcc.Dropdown(options=states, id='state_dropdown', searchable=False, style={"color": "#000000"}),
+                    xs=9, sm=8, md=10, lg=3, xl=2),
+                dbc.Label("County", width='auto'),
+                dbc.Col(dcc.Dropdown(options={}, id='county_dropdown', searchable=False,
+                                     style={"color": "#000000"}),
+                        xs=9, sm=4, md=5, lg=3, xl=2),
+                dbc.Label("Town", width='auto'),
+                dbc.Col(dcc.Dropdown(id='town_dropdown', options={}, searchable=False, style={"color": "#000000"}),
+                        xs=9, sm=4, md=4, lg=3, xl=4),
+            ]),
+            dbc.Row([
+                dbc.Col(dcc.Store(id='summary_data')),
+                dbc.Col(dcc.Store(id='county_data')),
+                dbc.Col(dcc.Store(id='state_geometry_json')),
+                dbc.Col(dcc.Store(id='state_map_cache')),
+                dbc.Col(dcc.Store(id='state_table_cache')),
+                dbc.Col(dcc.Store(id='county_map_cache')),
+                dbc.Col(dcc.Store(id='town_table_cache')),
+            ])
+        ],
+        ),
+    ),
+    color="dark",  # https://bootswatch.com/default/ for more card colors
+    inverse=True,  # change color of text (black or white)
+    outline=False,  # True = remove the block colors from the background and header
+)
+
+card_graph = dbc.Card(
+    # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
+    dcc.Graph(id='my_choropleth', figure=create_region_map(), className="h-100"),
+    body=True, color="secondary",
+    # style={"height": 875},
+    className="p-4 bg-secondary",
+)
+
+
+app.layout = dbc.Container([
+    dbc.Row([dbc.Col(html.H2("Browse WandrerQuest Data by Map", className='text-center bg-primary text-white p-2'))
+             ]),
+    dbc.Row([dbc.Col(card_main_form, className="mx-1")
+             ]),
+    dbc.Row([
+        # dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
+        #         # align='center', style={"height": "100vh"}
+        #         ),
+        dbc.Col(dcc.Loading(children=[card_graph], fullscreen=False), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
+        # dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
+        dbc.Col(dcc.Loading(children=[card_data], fullscreen=False), className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
+    ],
+        style={'flexGrow': '1'}
+        # style={'overflowX': 'scroll'}
+    ),
+    dbc.Row([dbc.Col(html.H2("WandrerQuest footer", className='text-center bg-primary text-white p-2'))
+             ]
+            ),
+],
+    fluid=True,
+    style={'height': '100vh', 'display': 'flex', 'flexDirection': 'column'}
+)
 
 
 def load_county_by_name(selected_state, county_name, summary_data):
@@ -141,26 +289,6 @@ def load_town_boundaries(selected_state, county_name, summary_data):
     return df.sort_values('Town')
 
 
-my_color_scale = ['white', 'gold', 'red']
-
-latitude = 44.18294737
-longitude = -69.25990211
-zoom = 7.75
-
-
-def create_region_map():
-    selected_state = 'New England'
-
-    df_summary = load_state_summary(selected_state)
-    # print(df_summary.County.unique())
-
-    # clean data for display in table
-    df_cleaned_summary = df_summary.dropna()
-    cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
-
-    # create state map
-    region_map = create_state_map(selected_state, df_cleaned_summary)
-    return region_map
 
 
 def blank_figure():
@@ -189,41 +317,41 @@ def usa_base_map():
     return fig
 
 
-def get_center_coords(county_objects, oid, locations_field):
-    print('\nfunction get_center_coords')
-    max_lat = 0
-    min_lat = 0
-    max_lon = 0
-    min_lon = 0
-
-    for feature in county_objects['features']:
-        if int(feature['properties'][locations_field]) == oid:
-            # print(feature['geometry']['coordinates'])
-            # print(feature['geometry']['coordinates'][0])
-            for coord in feature['geometry']['coordinates'][0]:
-                # print(feature['geometry']['coordinates'][0][0])
-                # print(coord)
-                if max_lat == 0:
-                    max_lat = coord[1]
-                elif coord[1] > max_lat:
-                    max_lat = coord[1]
-                if min_lat == 0:
-                    min_lat = coord[1]
-                elif coord[1] < min_lat:
-                    min_lat = coord[1]
-
-                if max_lon == 0:
-                    max_lon = coord[0]
-                elif coord[0] > max_lon:
-                    max_lon = coord[0]
-                if min_lon == 0:
-                    min_lon = coord[0]
-                elif coord[0] < min_lon:
-                    min_lon = coord[0]
-
-    avglat = (max_lat + min_lat) / 2
-    avglon = (max_lon + min_lon) / 2
-    return avglat, avglon
+# def get_center_coords(county_objects, oid, locations_field):
+#     print('\nfunction get_center_coords')
+#     max_lat = 0
+#     min_lat = 0
+#     max_lon = 0
+#     min_lon = 0
+#
+#     for feature in county_objects['features']:
+#         if int(feature['properties'][locations_field]) == oid:
+#             # print(feature['geometry']['coordinates'])
+#             # print(feature['geometry']['coordinates'][0])
+#             for coord in feature['geometry']['coordinates'][0]:
+#                 # print(feature['geometry']['coordinates'][0][0])
+#                 # print(coord)
+#                 if max_lat == 0:
+#                     max_lat = coord[1]
+#                 elif coord[1] > max_lat:
+#                     max_lat = coord[1]
+#                 if min_lat == 0:
+#                     min_lat = coord[1]
+#                 elif coord[1] < min_lat:
+#                     min_lat = coord[1]
+#
+#                 if max_lon == 0:
+#                     max_lon = coord[0]
+#                 elif coord[0] > max_lon:
+#                     max_lon = coord[0]
+#                 if min_lon == 0:
+#                     min_lon = coord[0]
+#                 elif coord[0] < min_lon:
+#                     min_lon = coord[0]
+#
+#     avglat = (max_lat + min_lat) / 2
+#     avglon = (max_lon + min_lon) / 2
+#     return avglat, avglon
 
 
 def get_center_coords_from_town_json(town_json, oid, locations_field):
@@ -258,34 +386,6 @@ def get_center_coords_from_town_json(town_json, oid, locations_field):
     avgLon = (max_lon + min_lon) / 2
     return avgLat, avgLon
 
-
-def create_state_map(chosen_state, df_cleaned_summary):
-    print("\nfunction create_state_map: " + chosen_state)
-    df_state = df_StateWQData.loc[df_StateWQData.State == chosen_state]
-
-    latitude = df_state.iloc[0]['cLatitude']
-    longitude = df_state.iloc[0]['cLongitude']
-    zoom = df_state.iloc[0]['Zoom']
-    geoidPropertyName = df_state.iloc[0]['GeoidPropertyName']
-    print('geoidPropertyName: ' + geoidPropertyName)
-
-    counties = get_county_json(chosen_state)
-
-    counties['features'] = [f for f in counties['features'] if
-                            f['properties'][geoidPropertyName] in df_cleaned_summary[geoidPropertyName].unique()]
-
-    fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color='Actual Pct',
-                               color_continuous_scale=my_color_scale,
-                               mapbox_style="carto-positron",
-                               zoom=zoom,
-                               center={"lat": latitude, "lon": longitude},
-                               opacity=0.75,
-                               range_color=[0, .4],
-                               hover_data=['County'],
-                               height=700
-                               )
-    fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
-    return fig
 
 
 def create_county_map(df_towns, selected_state, selected_county, town_json):
@@ -376,19 +476,6 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
     return fig
 
 
-def get_county_json(chosen_state):
-    print('function get_county_json for state ' + chosen_state)
-    if chosen_state == 'Maine':
-        r = open('../geojsonFiles/Maine_County_Boundaries.geojson.json')
-        # r = open('geojsonFiles/New_England_County_Boundaries.geojson.json')
-    elif chosen_state == 'New Hampshire':
-        r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
-    else:
-        r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
-
-    counties = json.load(r)
-    return counties
-
 
 def get_town_json_for_state(chosen_state):
     print('function get_town_json_for_state ' + chosen_state)
@@ -405,64 +492,6 @@ def get_town_json_for_state(chosen_state):
     return counties
 
 
-card_data = dbc.Card(
-    [
-        dbc.CardBody(
-            [
-                html.H4(id='data_card_header', children='This card contains data', className='card-title text-center'),
-                # dbc.CardImg(src="assets/20200926-12.jpg", top=True, bottom=False,
-                #             title="Image by Kevin Klasman", alt='Select a location to browse'),
-                # DataTable(id='table', data=[], columns=summary_columns, page_size=20)
-                # html.Div(id='table', children={})
-                html.Div(id='table'),
-                # DataTable(id='table'),
-                # dbc.Alert('Table cell clicked', id='out')
-            ]
-        )
-    ])
-
-
-card_main_form = dbc.Card(
-    dbc.CardBody(
-        dbc.Form([
-            html.H5("Select a location to browse", className="card-title"),
-            dbc.Row([
-                dbc.Label("Region", width='auto'),
-                dbc.Col(
-                    dcc.Dropdown(options=states, id='state_dropdown', searchable=False, style={"color": "#000000"}),
-                    xs=9, sm=8, md=10, lg=3, xl=2),
-                dbc.Label("County", width='auto'),
-                dbc.Col(dcc.Dropdown(options={}, id='county_dropdown', searchable=False,
-                                     style={"color": "#000000"}),
-                        xs=9, sm=4, md=5, lg=3, xl=2),
-                dbc.Label("Town", width='auto'),
-                dbc.Col(dcc.Dropdown(id='town_dropdown', options={}, searchable=False, style={"color": "#000000"}),
-                        xs=9, sm=4, md=4, lg=3, xl=4),
-            ]),
-            dbc.Row([
-                dbc.Col(dcc.Store(id='summary_data')),
-                dbc.Col(dcc.Store(id='county_data')),
-                dbc.Col(dcc.Store(id='state_geometry_json')),
-                dbc.Col(dcc.Store(id='state_map_cache')),
-                dbc.Col(dcc.Store(id='state_table_cache')),
-                dbc.Col(dcc.Store(id='county_map_cache')),
-                dbc.Col(dcc.Store(id='town_table_cache')),
-            ])
-        ],
-        ),
-    ),
-    color="dark",  # https://bootswatch.com/default/ for more card colors
-    inverse=True,  # change color of text (black or white)
-    outline=False,  # True = remove the block colors from the background and header
-)
-
-card_graph = dbc.Card(
-    # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
-    dcc.Graph(id='my_choropleth', figure=create_region_map(), className="h-100"),
-    body=True, color="secondary",
-    # style={"height": 875},
-    className="p-4 bg-secondary",
-)
 
 
 @callback(Output('county_dropdown', 'value'),
@@ -523,7 +552,6 @@ def map_clicked(clickData):
           Output('data_card_header', 'children', allow_duplicate=True),
           Input('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
-
 def state_dropdown_clicked(selected_state):
     # print('\ncallback: state_dropdown_clicked...triggered by ' + ctx.triggered_id)
     if not selected_state:
@@ -629,7 +657,7 @@ def county_selected(selected_county, selected_state, summary_data, state_geometr
 
 
 def get_town_json_for_town(locations_field, location_id, county_json):
-    print('\nget_town_json_for_town')
+    print('\nfunction get_town_json_for_town')
     for feature in county_json['features']:
         # print(str(feature['properties']['OBJECTID']) + ': ' + feature['properties']['TOWN'])
         if int(feature['properties'][locations_field]) == location_id:
@@ -714,32 +742,9 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     return fig
 
 
-app.layout = dbc.Container([
-    dbc.Row([dbc.Col(html.H2("Browse WandrerQuest Data by Map", className='text-center bg-primary text-white p-2'))
-             ]),
-    dbc.Row([dbc.Col(card_main_form, className="mx-1")
-             ]),
-    dbc.Row([
-        # dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
-        #         # align='center', style={"height": "100vh"}
-        #         ),
-        dbc.Col(dcc.Loading(children=[card_graph], fullscreen=False), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
-        # dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
-        dbc.Col(dcc.Loading(children=[card_data], fullscreen=False), className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
-    ],
-        style={'flexGrow': '1'}
-        # style={'overflowX': 'scroll'}
-    ),
-    dbc.Row([dbc.Col(html.H2("WandrerQuest footer", className='text-center bg-primary text-white p-2'))
-             ]
-            ),
-],
-    fluid=True,
-    style={'height': '100vh', 'display': 'flex', 'flexDirection': 'column'}
-)
 
 if __name__ == "__main__":
-    # app.run_server(debug=True)
-    app.run_server(debug=False)
+    app.run_server(debug=True)
+    # app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
