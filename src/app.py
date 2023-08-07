@@ -180,7 +180,7 @@ card_main_form = dbc.Card(
                         xs=9, sm=4, md=4, lg=3, xl=4),
             ]),
             dbc.Row([
-                dbc.Col(dcc.Store(id='summary_data')),
+                dbc.Col(dcc.Store(id='summary_data_store')),
                 dbc.Col(dcc.Store(id='county_data')),
                 dbc.Col(dcc.Store(id='state_geometry_json')),
                 dbc.Col(dcc.Store(id='state_map_cache')),
@@ -492,18 +492,8 @@ def get_town_json_for_state(chosen_state):
     return counties
 
 
-
-
-
 @callback(Output('county_dropdown', 'options'),
-          Output('summary_data', 'data'),
-          Output('table', 'children', allow_duplicate=True),
-          Output('state_table_cache', 'data'),
-          Output('my_choropleth', 'figure', allow_duplicate=True),
-          Output('state_geometry_json', 'data'),
-          Output('town_dropdown', 'options', allow_duplicate=True),
-          Output('state_map_cache', 'data'),
-          Output('data_card_header', 'children', allow_duplicate=True),
+          Output('summary_data_store', 'data'),
           Input('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
 def state_dropdown_clicked(selected_state):
@@ -514,33 +504,54 @@ def state_dropdown_clicked(selected_state):
         return ()
 
     print('\ncallback: state_dropdown_clicked triggerd by ctx.triggered_id')
-    if len(df_StateWQData[df_StateWQData['State'] == selected_state]) > 0:
-        df_summary = load_state_summary(selected_state)
-        # print(df_summary.County.unique())
-
-        # clean data for display in table
-        df_cleaned_summary = df_summary.dropna()
-        cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
-
-        # create state map
-        state_map = create_state_map(selected_state, df_cleaned_summary)
-
-        # get state geometry json and store
-        state_geometry_json = get_town_json_for_state(selected_state)
-
-        table_data = DataTable(
-            style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
-            columns=summary_columns,
-            data=df_cleaned_summary.to_dict('records'),
-            # page_size=20,
-            style_table={'overflowX': 'scroll'},
-            id='state_table'
-            )
-        return df_summary.County.unique(), cleaned_summary_json, table_data, table_data, state_map, \
-            state_geometry_json, {}, state_map, 'WandrerQuest data for the state of ' + selected_state
-    else:
+    if len(df_StateWQData[df_StateWQData['State'] == selected_state]) == 0:
         print('...get_counties: state_dropdown: ' + selected_state + ' not coded yet')
         return {}
+
+    df_summary = load_state_summary(selected_state)
+    # print(df_summary.County.unique())
+
+    # clean data for display in table
+    df_cleaned_summary = df_summary.dropna()
+    cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
+
+    return df_summary.County.unique(), cleaned_summary_json
+
+
+@callback(Output('table', 'children', allow_duplicate=True),
+          Output('state_table_cache', 'data'),
+          Output('my_choropleth', 'figure', allow_duplicate=True),
+          Output('state_geometry_json', 'data'),
+          Output('town_dropdown', 'options', allow_duplicate=True),
+          Output('state_map_cache', 'data'),
+          Output('data_card_header', 'children', allow_duplicate=True),
+          Input('summary_data_store', 'data'),
+          State('state_dropdown', 'value'), prevent_initial_call=True)
+# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
+def summary_data_store_updated(summary_data, selected_state):
+    print('\ncallback summary_data_store_updated')
+
+    df_cleaned_summary = pd.read_json(summary_data, orient='split')
+
+    # create state map
+    state_map = create_state_map(selected_state, df_cleaned_summary)
+
+    # get state geometry json and store
+    state_geometry_json = get_town_json_for_state(selected_state)
+
+    table_data = DataTable(
+        style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
+        columns=summary_columns,
+        data=df_cleaned_summary.to_dict('records'),
+        # page_size=20,
+        style_table={'overflowX': 'scroll'},
+        id='state_table'
+        )
+    return table_data, table_data, state_map, \
+        state_geometry_json, {}, state_map, 'WandrerQuest data for the state of ' + selected_state
+    # else:
+    #     print('...get_counties: state_dropdown: ' + selected_state + ' not coded yet')
+    #     return {}
 
 
 @callback(Output('town_dropdown', 'options'),
@@ -552,7 +563,7 @@ def state_dropdown_clicked(selected_state):
           Output('town_table_cache', 'data'),
           Input('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
-          State('summary_data', 'data'),
+          State('summary_data_store', 'data'),
           State('state_geometry_json', 'data'),
           State('state_map_cache', 'data'),
           State('state_table_cache', 'data'),
@@ -625,7 +636,7 @@ def get_town_json_for_town(locations_field, location_id, county_json):
     Input(component_id='town_dropdown', component_property='value'),
     State(component_id='state_dropdown', component_property='value'),
     State(component_id='county_dropdown', component_property='value'),
-    State('summary_data', 'data'),
+    State('summary_data_store', 'data'),
     State('state_geometry_json', 'data'),
     State('county_map_cache', 'data'),
     State('county_data', 'data'), prevent_initial_call=True)
@@ -744,7 +755,7 @@ def map_clicked(clickData):
 
 
 if __name__ == "__main__":
-    # app.run_server(debug=True)
-    app.run_server(debug=False)
+    app.run_server(debug=True)
+    # app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
