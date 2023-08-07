@@ -742,9 +742,8 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     return fig
 
 
-
 if __name__ == "__main__":
-    app.run_server(debug=True)
-    # app.run_server(debug=False)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
