@@ -183,8 +183,8 @@ card_main_form = dbc.Card(
                 dbc.Col(dcc.Store(id='summary_data_store')),
                 dbc.Col(dcc.Store(id='county_data')),
                 dbc.Col(dcc.Store(id='state_geometry_json')),
-                dbc.Col(dcc.Store(id='state_map_cache')),
-                dbc.Col(dcc.Store(id='state_table_cache')),
+                dbc.Col(dcc.Store(id='state_map_store')),
+                dbc.Col(dcc.Store(id='state_table_store')),
                 dbc.Col(dcc.Store(id='county_map_cache')),
                 dbc.Col(dcc.Store(id='town_table_cache')),
             ])
@@ -518,18 +518,45 @@ def state_dropdown_clicked(selected_state):
     return df_summary.County.unique(), cleaned_summary_json
 
 
-@callback(Output('table', 'children', allow_duplicate=True),
-          Output('state_table_cache', 'data'),
-          Output('my_choropleth', 'figure', allow_duplicate=True),
-          Output('state_geometry_json', 'data'),
-          Output('town_dropdown', 'options', allow_duplicate=True),
-          Output('state_map_cache', 'data'),
-          Output('data_card_header', 'children', allow_duplicate=True),
+@callback(Output('state_table_store', 'data'),
           Input('summary_data_store', 'data'),
           State('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
-def summary_data_store_updated(summary_data, selected_state):
-    print('\ncallback summary_data_store_updated')
+def update_state_table_store(summary_data, selected_state):
+    print('\ncallback update_state_table_store')
+
+    df_cleaned_summary = pd.read_json(summary_data, orient='split')
+
+    table_data = DataTable(
+        style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
+        columns=summary_columns,
+        data=df_cleaned_summary.to_dict('records'),
+        # page_size=20,
+        style_table={'overflowX': 'scroll'},
+        id='state_table'
+        )
+    return table_data
+
+
+@callback(Output('table', 'children', allow_duplicate=True),
+          Output('data_card_header', 'children', allow_duplicate=True),
+          Input('state_table_store', 'data'),
+          State('state_dropdown', 'value'), prevent_initial_call=True)
+# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
+def update_state_table(table_data, selected_state):
+    print('\ncallback update_table')
+
+    return table_data, 'WandrerQuest data for the state of ' + selected_state
+
+
+@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+          Output('state_geometry_json', 'data'),
+          Output('state_map_store', 'data'),
+          Input('summary_data_store', 'data'),
+          State('state_dropdown', 'value'), prevent_initial_call=True)
+# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
+def update_state_map_store(summary_data, selected_state):
+    print('\ncallback update_state_map_store')
 
     df_cleaned_summary = pd.read_json(summary_data, orient='split')
 
@@ -547,8 +574,7 @@ def summary_data_store_updated(summary_data, selected_state):
         style_table={'overflowX': 'scroll'},
         id='state_table'
         )
-    return table_data, table_data, state_map, \
-        state_geometry_json, {}, state_map, 'WandrerQuest data for the state of ' + selected_state
+    return state_map, state_geometry_json, state_map
     # else:
     #     print('...get_counties: state_dropdown: ' + selected_state + ' not coded yet')
     #     return {}
@@ -565,8 +591,8 @@ def summary_data_store_updated(summary_data, selected_state):
           State('state_dropdown', 'value'),
           State('summary_data_store', 'data'),
           State('state_geometry_json', 'data'),
-          State('state_map_cache', 'data'),
-          State('state_table_cache', 'data'),
+          State('state_map_store', 'data'),
+          State('state_table_store', 'data'),
           State('town_table_cache', 'data'),
           prevent_initial_call=True)
 def county_selected(selected_county, selected_state, summary_data, state_geometry_json, cached_state_map,
@@ -708,7 +734,7 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
 
 @callback(Output('county_dropdown', 'value'),
           # State('county_dropdown', 'value'),
-          State('state_table_cache', 'data'),
+          State('state_table_store', 'data'),
           Input('state_table', 'active_cell'))
 def state_table_cell_clicked(active_table, active_cell):
     if not active_cell:
