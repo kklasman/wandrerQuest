@@ -336,12 +336,12 @@ def create_county_map(df_towns, selected_state, selected_county, town_json):
 
 
 def create_county_map_from_state_data(df_towns, selected_state, selected_county, town_json):
-    print("\ncreate_county_map_from_state_data create_county_map")
 
     if not selected_county:
-        print('...returning from create_county_map early because county not chosen')
+        print('...returning from create_county_map_from_state_data early because county not chosen')
         return
 
+    print('\nfunction create_county_map_from_state_data for ' + selected_county)
     print('...county_dropdown: ' + selected_county)
     # print('town_dropdown: ' + df_towns)
     # print(df)
@@ -377,7 +377,7 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
 
 
 def get_county_json(chosen_state):
-    print('function get_county_json')
+    print('function get_county_json for state ' + chosen_state)
     if chosen_state == 'Maine':
         r = open('../geojsonFiles/Maine_County_Boundaries.geojson.json')
         # r = open('geojsonFiles/New_England_County_Boundaries.geojson.json')
@@ -391,12 +391,12 @@ def get_county_json(chosen_state):
 
 
 def get_town_json_for_state(chosen_state):
-    print('function get_county_json')
+    print('function get_town_json_for_state ' + chosen_state)
     if chosen_state == 'Maine':
         r = open('../geojsonFiles/Maine_Town_and_Townships_Boundary_Polygons_Feature.json')
         # r = open('New_England_County_Boundaries.geojson.json')
     elif chosen_state == 'New Hampshire':
-        # r = open('geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
+        # r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
         r = open('../geojsonFiles/New_Hampshire_Political_Boundaries_4.json')
     else:
         r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
@@ -470,10 +470,10 @@ card_graph = dbc.Card(
           State('state_table_cache', 'data'),
           Input('state_table', 'active_cell'))
 def state_table_cell_clicked(active_table, active_cell):
-    print('\ncallback table_cell_clicked')
     if not active_cell:
         return dash.no_update
 
+    print('\ncallback state_table_cell_clicked')
     row = active_cell['row']
     print(active_cell)
     county = active_table['props']['data'][row]['County']
@@ -486,10 +486,10 @@ def state_table_cell_clicked(active_table, active_cell):
           State('town_table_cache', 'data'),
           Input('town_table', 'active_cell'))
 def town_table_cell_clicked(active_table, active_cell):
-    print('\ncallback table_cell_clicked')
     if not active_cell:
         return dash.no_update
 
+    print('\ncallback town_table_cell_clicked')
     row_id = active_cell['row_id']
     print(active_cell)
     print('...town: ' + row_id)
@@ -499,14 +499,17 @@ def town_table_cell_clicked(active_table, active_cell):
 @callback(Output('county_dropdown', 'value', allow_duplicate=True),
           Output('town_dropdown', 'value', allow_duplicate=True),
           Input('my_choropleth', 'clickData'), prevent_initial_call=True)
-def select_county(clickData):
-    print('ncallback select_county')
-    print(clickData)
+def map_clicked(clickData):
+    # print(clickData)
 
     if len(clickData['points'][0]['customdata']) == 1:
-        return clickData['points'][0]['customdata'][0], dash.no_update
+        county = clickData['points'][0]['customdata'][0]
+        print('\ncallback map_clicked on county ' + county)
+        return county, dash.no_update
     else:
-        return dash.no_update, clickData['points'][0]['customdata'][1]
+        town = clickData['points'][0]['customdata'][1]
+        print('\ncallback map_clicked on town ' + town)
+        return dash.no_update, town
 
 
 @callback(Output('county_dropdown', 'options'),
@@ -521,16 +524,14 @@ def select_county(clickData):
           Input('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
 
-def get_counties(selected_state):
-    # print('\ncallback: get_counties...triggered by ' + ctx.triggered_id)
-    print('\ncallback: get_counties')
-    var = ctx.triggered_id
+def state_dropdown_clicked(selected_state):
+    # print('\ncallback: state_dropdown_clicked...triggered by ' + ctx.triggered_id)
     if not selected_state:
-        print('...get_counties: state_dropdown not provided.')
+        # print('\ncallback: state_dropdown_clicked: selected_state not provided.')
         # print('...ctx.triggered_id: ' + var)
         return ()
 
-    print('...ctx.triggered_id: ' + var)
+    print('\ncallback: state_dropdown_clicked triggerd by ctx.triggered_id')
     if len(df_StateWQData[df_StateWQData['State'] == selected_state]) > 0:
         df_summary = load_state_summary(selected_state)
         # print(df_summary.County.unique())
@@ -648,6 +649,9 @@ def get_town_json_for_town(locations_field, location_id, county_json):
     State('county_data', 'data'), prevent_initial_call=True)
 def create_town_map(selected_town, selected_state, selected_county, summary_data, county_json, cached_county_map,
                     county_data):
+    # TODO: Refactor this large callback into smaller chained ones that output just a single element. Each should be easier to make clientside.
+    # TODO: Refactor this callback to save figure in a dcc.Store, then write a clientside callback to display it.
+    # TODO: Trigger the clientside callback from the town dropdown and the dcc.Store used above. If town dropdown is blank return stored county map instead.
     print("\ncallback create_town_map")
     # print('---Triggered by: ' + ctx.triggered_id)
     if not selected_town:
