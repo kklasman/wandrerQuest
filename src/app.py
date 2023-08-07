@@ -494,52 +494,6 @@ def get_town_json_for_state(chosen_state):
 
 
 
-@callback(Output('county_dropdown', 'value'),
-          # State('county_dropdown', 'value'),
-          State('state_table_cache', 'data'),
-          Input('state_table', 'active_cell'))
-def state_table_cell_clicked(active_table, active_cell):
-    if not active_cell:
-        return dash.no_update
-
-    print('\ncallback state_table_cell_clicked')
-    row = active_cell['row']
-    print(active_cell)
-    county = active_table['props']['data'][row]['County']
-    print('county: ' + county)
-    return county
-
-
-@callback(Output('town_dropdown', 'value'),
-          # State('county_dropdown', 'value'),
-          State('town_table_cache', 'data'),
-          Input('town_table', 'active_cell'))
-def town_table_cell_clicked(active_table, active_cell):
-    if not active_cell:
-        return dash.no_update
-
-    print('\ncallback town_table_cell_clicked')
-    row_id = active_cell['row_id']
-    print(active_cell)
-    print('...town: ' + row_id)
-    return row_id
-
-
-@callback(Output('county_dropdown', 'value', allow_duplicate=True),
-          Output('town_dropdown', 'value', allow_duplicate=True),
-          Input('my_choropleth', 'clickData'), prevent_initial_call=True)
-def map_clicked(clickData):
-    # print(clickData)
-
-    if len(clickData['points'][0]['customdata']) == 1:
-        county = clickData['points'][0]['customdata'][0]
-        print('\ncallback map_clicked on county ' + county)
-        return county, dash.no_update
-    else:
-        town = clickData['points'][0]['customdata'][1]
-        print('\ncallback map_clicked on town ' + town)
-        return dash.no_update, town
-
 
 @callback(Output('county_dropdown', 'options'),
           Output('summary_data', 'data'),
@@ -740,6 +694,53 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
     return fig
+
+@callback(Output('county_dropdown', 'value'),
+          # State('county_dropdown', 'value'),
+          State('state_table_cache', 'data'),
+          Input('state_table', 'active_cell'))
+def state_table_cell_clicked(active_table, active_cell):
+    if not active_cell:
+        return dash.no_update
+
+    print('\ncallback state_table_cell_clicked')
+    row = active_cell['row']
+    print(active_cell)
+    county = active_table['props']['data'][row]['County']
+    print('county: ' + county)
+    return county
+
+
+@callback(Output('town_dropdown', 'value'),
+          # State('county_dropdown', 'value'),
+          State('town_table_cache', 'data'),
+          Input('town_table', 'active_cell'))
+def town_table_cell_clicked(active_table, active_cell):
+    if not active_cell:
+        return dash.no_update
+
+    print('\ncallback town_table_cell_clicked')
+    row_id = active_cell['row_id']
+    print(active_cell)
+    print('...town: ' + row_id)
+    return row_id
+
+
+@callback(Output('county_dropdown', 'value', allow_duplicate=True),
+          Output('town_dropdown', 'value', allow_duplicate=True),
+          Input('my_choropleth', 'clickData'), prevent_initial_call=True)
+def map_clicked(clickData):
+    # print(clickData)
+
+    if len(clickData['points'][0]['customdata']) == 1:
+        county = clickData['points'][0]['customdata'][0]
+        print('\ncallback map_clicked on county ' + county)
+        return county, dash.no_update
+    else:
+        town = clickData['points'][0]['customdata'][1]
+        print('\ncallback map_clicked on town ' + town)
+        return dash.no_update, town
+
 
 
 if __name__ == "__main__":
