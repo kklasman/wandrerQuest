@@ -1,5 +1,5 @@
 import dash
-from dash import Dash, html, dcc, Input, Output, callback, ctx, State
+from dash import Dash, html, dcc, Input, Output, callback, ctx, State, clientside_callback
 from dash.dash_table import DataTable, FormatTemplate
 from dash.dash_table.Format import Format, Scheme, Trim
 from dash.exceptions import PreventUpdate
@@ -137,13 +137,13 @@ def getStateWQData():
     # print(df)
     return df
 
+
 df_StateWQData = getStateWQData()
 
 states = df_StateWQData.State.unique()
 print(states)
 
 dict_state = {}
-
 
 card_data = dbc.Card(
     [
@@ -160,7 +160,6 @@ card_data = dbc.Card(
             ]
         )
     ])
-
 
 card_main_form = dbc.Card(
     dbc.CardBody(
@@ -182,7 +181,7 @@ card_main_form = dbc.Card(
             dbc.Row([
                 dbc.Col(dcc.Store(id='summary_data_store')),
                 dbc.Col(dcc.Store(id='county_data')),
-                dbc.Col(dcc.Store(id='state_geometry_json')),
+                dbc.Col(dcc.Store(id='state_geometry_json_store')),
                 dbc.Col(dcc.Store(id='state_map_store')),
                 dbc.Col(dcc.Store(id='state_table_store')),
                 dbc.Col(dcc.Store(id='county_map_cache')),
@@ -204,7 +203,6 @@ card_graph = dbc.Card(
     className="p-4 bg-secondary",
 )
 
-
 app.layout = dbc.Container([
     dbc.Row([dbc.Col(html.H2("Browse WandrerQuest Data by Map", className='text-center bg-primary text-white p-2'))
              ]),
@@ -214,7 +212,8 @@ app.layout = dbc.Container([
         # dbc.Col(card_graph, className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,
         #         # align='center', style={"height": "100vh"}
         #         ),
-        dbc.Col(dcc.Loading(children=[card_graph], fullscreen=False), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6, xl=6,),
+        dbc.Col(dcc.Loading(children=[card_graph], fullscreen=False), className="mt-1 mb-1", xs=12, sm=12, md=12, lg=6,
+                xl=6, ),
         # dbc.Col(card_data, className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
         dbc.Col(dcc.Loading(children=[card_data], fullscreen=False), className="m-1", xs=12, sm=12, md=12, lg=5, xl=5)
     ],
@@ -287,8 +286,6 @@ def load_town_boundaries(selected_state, county_name, summary_data):
     df['id'] = df['Town']
 
     return df.sort_values('Town')
-
-
 
 
 def blank_figure():
@@ -387,7 +384,6 @@ def get_center_coords_from_town_json(town_json, oid, locations_field):
     return avgLat, avgLon
 
 
-
 def create_county_map(df_towns, selected_state, selected_county, town_json):
     print("\nfunction create_county_map")
 
@@ -415,8 +411,8 @@ def create_county_map(df_towns, selected_state, selected_county, town_json):
                                  (df_StateWQData['State'] == selected_state) & (
                                          df_StateWQData['CountyName'] == selected_county)].cLongitude)
     county_zoom = float(df_StateWQData[
-                     (df_StateWQData['State'] == selected_state) & (
-                             df_StateWQData['CountyName'] == selected_county)].Zoom)
+                            (df_StateWQData['State'] == selected_state) & (
+                                    df_StateWQData['CountyName'] == selected_county)].Zoom)
 
     dff = df_StateWQData[
         (df_StateWQData['State'] == selected_state) & (df_StateWQData['CountyName'] == selected_county)]
@@ -436,7 +432,6 @@ def create_county_map(df_towns, selected_state, selected_county, town_json):
 
 
 def create_county_map_from_state_data(df_towns, selected_state, selected_county, town_json):
-
     if not selected_county:
         print('...returning from create_county_map_from_state_data early because county not chosen')
         return
@@ -474,7 +469,6 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
     return fig
-
 
 
 def get_town_json_for_state(chosen_state):
@@ -526,7 +520,7 @@ def update_state_table_store(summary_data, selected_state):
     print('\ncallback update_state_table_store')
 
     df_cleaned_summary = pd.read_json(summary_data, orient='split')
-
+    # records = df_cleaned_summary.to_dict('records')
     table_data = DataTable(
         style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
         columns=summary_columns,
@@ -534,24 +528,29 @@ def update_state_table_store(summary_data, selected_state):
         # page_size=20,
         style_table={'overflowX': 'scroll'},
         id='state_table'
-        )
+    )
     return table_data
 
+clientside_callback(
+    """
+    function(state_table_data, selected_state) {
+    if (selected_state == undefined) {
+        return ['', 'Select a state to show county data below']
+        } else {
+            return [state_table_data, 'WandrerQuest data for the state of ' + selected_state]
+       }
+     }
+    """,
+    Output('table', 'children'),
+    Output('data_card_header', 'children'),
+    Input('state_table_store', 'data'),
+    State('state_dropdown', 'value')
+)
 
-@callback(Output('table', 'children', allow_duplicate=True),
-          Output('data_card_header', 'children', allow_duplicate=True),
-          Input('state_table_store', 'data'),
-          State('state_dropdown', 'value'), prevent_initial_call=True)
-# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
-def update_state_table(table_data, selected_state):
-    print('\ncallback update_table')
-
-    return table_data, 'WandrerQuest data for the state of ' + selected_state
 
 
-@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
-          Output('state_geometry_json', 'data'),
-          Output('state_map_store', 'data'),
+
+@callback(Output('state_map_store', 'data'),
           Input('summary_data_store', 'data'),
           State('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
@@ -563,21 +562,27 @@ def update_state_map_store(summary_data, selected_state):
     # create state map
     state_map = create_state_map(selected_state, df_cleaned_summary)
 
+    return state_map
+
+
+@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+          Input('state_map_store', 'data'),
+          State('state_dropdown', 'value'), prevent_initial_call=True)
+def update_state_map_figure(state_map_store, selected_state):
+    print('\ncallback update_state_map_figure for state: ' + selected_state)
+    return state_map_store
+
+
+@callback(Output('state_geometry_json_store', 'data'),
+          Input('state_dropdown', 'value'), prevent_initial_call=True)
+# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
+def update_state_geometry_json_store(selected_state):
+    print('\ncallback update_state_geometry_json_store')
+
     # get state geometry json and store
     state_geometry_json = get_town_json_for_state(selected_state)
 
-    table_data = DataTable(
-        style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
-        columns=summary_columns,
-        data=df_cleaned_summary.to_dict('records'),
-        # page_size=20,
-        style_table={'overflowX': 'scroll'},
-        id='state_table'
-        )
-    return state_map, state_geometry_json, state_map
-    # else:
-    #     print('...get_counties: state_dropdown: ' + selected_state + ' not coded yet')
-    #     return {}
+    return state_geometry_json
 
 
 @callback(Output('town_dropdown', 'options'),
@@ -590,7 +595,7 @@ def update_state_map_store(summary_data, selected_state):
           Input('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
           State('summary_data_store', 'data'),
-          State('state_geometry_json', 'data'),
+          State('state_geometry_json_store', 'data'),
           State('state_map_store', 'data'),
           State('state_table_store', 'data'),
           State('town_table_cache', 'data'),
@@ -634,7 +639,7 @@ def county_selected(selected_county, selected_state, summary_data, state_geometr
             # page_size=20,
             style_table={'overflowX': 'scroll'},
             id='town_table'
-            )
+        )
 
         county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
                                                        state_geometry_json)
@@ -663,7 +668,7 @@ def get_town_json_for_town(locations_field, location_id, county_json):
     State(component_id='state_dropdown', component_property='value'),
     State(component_id='county_dropdown', component_property='value'),
     State('summary_data_store', 'data'),
-    State('state_geometry_json', 'data'),
+    State('state_geometry_json_store', 'data'),
     State('county_map_cache', 'data'),
     State('county_data', 'data'), prevent_initial_call=True)
 def create_town_map(selected_town, selected_state, selected_county, summary_data, county_json, cached_county_map,
@@ -732,6 +737,7 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
     return fig
 
+
 @callback(Output('county_dropdown', 'value'),
           # State('county_dropdown', 'value'),
           State('state_table_store', 'data'),
@@ -777,7 +783,6 @@ def map_clicked(clickData):
         town = clickData['points'][0]['customdata'][1]
         print('\ncallback map_clicked on town ' + town)
         return dash.no_update, town
-
 
 
 if __name__ == "__main__":
