@@ -180,12 +180,12 @@ card_main_form = dbc.Card(
             ]),
             dbc.Row([
                 dbc.Col(dcc.Store(id='summary_data_store')),
-                dbc.Col(dcc.Store(id='county_data')),
+                dbc.Col(dcc.Store(id='county_data_store')),
                 dbc.Col(dcc.Store(id='state_geometry_json_store')),
                 dbc.Col(dcc.Store(id='state_map_store')),
                 dbc.Col(dcc.Store(id='state_table_store')),
                 dbc.Col(dcc.Store(id='county_map_cache')),
-                dbc.Col(dcc.Store(id='town_table_cache')),
+                dbc.Col(dcc.Store(id='town_table_store')),
             ])
         ],
         ),
@@ -195,9 +195,12 @@ card_main_form = dbc.Card(
     outline=False,  # True = remove the block colors from the background and header
 )
 
-card_graph = dbc.Card(
+card_graph = dbc.Card([
     # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
     dcc.Graph(id='my_choropleth', figure=create_region_map(), className="h-100"),
+    # signal value to trigger callbacks
+    dcc.Store(id='redisplay_map_signal')
+    ],
     body=True, color="secondary",
     # style={"height": 875},
     className="p-4 bg-secondary",
@@ -584,72 +587,135 @@ def update_state_geometry_json_store(selected_state):
 
     return state_geometry_json
 
+# @callback(Output('redisplay_map_signal', 'data'),
+#           Input('county_dropdown', 'value'),
+#           State('state_dropdown', 'value'),
+#           State('summary_data_store', 'data'),
+#           State('county_data_store', 'data'),
+#           prevent_initial_call=True)
+# def county_dropdown_clicked(selected_county, selected_state, summary_data, county_data):
+#     print('\ncallback county_dropdown_clicked, called by ' + ctx.triggered_id)
+#
+#     if not selected_state:
+#         print('...selected_state not provided.')
+#         return {}
+#
+#     if not selected_county:
+#         print('...selected_county not provided. Signal map redisplay.')
+#         return {'map_to_redisplay': 'county'}
+#
+#     raise PreventUpdate
 
 @callback(Output('town_dropdown', 'options'),
-          Output('county_data', 'data'),
-          Output('table', 'children', allow_duplicate=True),
-          Output('my_choropleth', 'figure', allow_duplicate=True),
-          Output('county_map_cache', 'data'),
-          Output('data_card_header', 'children', allow_duplicate=True),
-          Output('town_table_cache', 'data'),
+          Output('county_data_store', 'data'),
+          Output('redisplay_map_signal', 'data'),
           Input('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
           State('summary_data_store', 'data'),
-          State('state_geometry_json_store', 'data'),
-          State('state_map_store', 'data'),
-          State('state_table_store', 'data'),
-          State('town_table_cache', 'data'),
+          State('county_data_store', 'data'),
           prevent_initial_call=True)
-def county_selected(selected_county, selected_state, summary_data, state_geometry_json, cached_state_map,
-                    cached_state_table_data, cached_town_table_data):
-    print('\ncallback county_selected, called by ' + ctx.triggered_id)
+def county_dropdown_clicked(selected_county, selected_state, summary_data, county_data):
+    print('\ncallback county_dropdown_clicked, called by ' + ctx.triggered_id)
 
     if not selected_state:
         print('...selected_state not provided.')
-        return ()
+        return {}
 
     if not selected_county:
         print('...selected_county not provided.')
-        return {}, [], cached_state_table_data, cached_state_map, dash.no_update, \
-            'WandrerQuest data for the state of ' + selected_state, cached_town_table_data
+        return [''], dash.no_update, {'map_to_redisplay': 'state'}
 
-    if selected_state != 'New England':
-        df = load_county_by_name(selected_state, selected_county, summary_data)
-        df_cleaned_towns = df.dropna()
-        cleaned_towns_json = df_cleaned_towns.to_json(orient='split')
-
-        town_columns = [
-            dict(id='State', name='State'),
-            dict(id='County', name='County'),
-            dict(id='Town', name='Town'),
-            dict(id='Total (mi)', name='Total Miles', type='numeric', format=fixed),
-            dict(id='25 Pct', name='Wandrer Target', type='numeric', format=fixed),
-            dict(id='Actual Pct', name='Actual Pct', type='numeric', format=percentage),
-            dict(id='Actual (mi)', name='Actual Miles', type='numeric', format=fixed),
-            dict(id='pbpFIPS', name='pbpFIPS'),
-            # dict(id='OBJECTID', name='OBJECTID'),
-            # dict(id='Primary', name='Primary'),
-            dict(id='Zoom', name='Zoom')
-        ]
-
-        town_table_data = DataTable(
-            style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
-            columns=town_columns,
-            data=df_cleaned_towns.to_dict('records'),
-            # page_size=20,
-            style_table={'overflowX': 'scroll'},
-            id='town_table'
-        )
-
-        county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
-                                                       state_geometry_json)
-
-        return df.Town.unique(), cleaned_towns_json, town_table_data, county_map, county_map, \
-            'WandrerQuest data for ' + selected_county + ' county', town_table_data
-
-    else:
+    if selected_state == 'New England':
         print('...selected_state: ' + selected_state + ' not coded yet')
         return {}
+
+    df_towns = load_county_by_name(selected_state, selected_county, summary_data)
+    df_cleaned_towns = df_towns.dropna()
+    cleaned_towns_json = df_cleaned_towns.to_json(orient='split')
+
+    return df_towns.Town.unique(), cleaned_towns_json, {'map_to_redisplay': 'none'}
+
+
+@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+          Output('table', 'children', allow_duplicate=True),
+          Output('data_card_header', 'children', allow_duplicate=True),
+          Input('redisplay_map_signal', 'data'),
+          State('county_map_cache', 'data'),
+          State('state_map_store', 'data'),
+          State('state_dropdown', 'value'),
+          State('state_table_store', 'data'),
+          State('county_dropdown', 'value'),
+          prevent_initial_call=True)
+def redisplay_map(signal, county_map, state_map, selected_state, state_table, selected_county):
+    # print(signal)
+    map_name = signal.get('map_to_redisplay')
+    print('\ncallback redisplay_map for ' + selected_state)
+    print('...map_name: ' + map_name)
+
+    if map_name == 'none':
+        raise PreventUpdate
+
+    if map_name == 'county':
+        return county_map, dash.no_update, 'WandrerQuest data for ' + selected_county + ' county'
+    else:
+        return state_map, state_table, 'WandrerQuest data for ' + selected_state
+
+
+@callback(Output('table', 'children', allow_duplicate=True),
+          Output('data_card_header', 'children', allow_duplicate=True),
+          Output('town_table_store', 'data'),
+          Input('county_data_store', 'data'),
+          State('county_dropdown', 'value'),
+          prevent_initial_call=True)
+def create_town_table_from_county_data_store(county_data_json, selected_county):
+    print('\ncallback create_town_table_from_county_data_store, triggered by ' + ctx.triggered_id)
+
+    town_columns = [
+        dict(id='State', name='State'),
+        dict(id='County', name='County'),
+        dict(id='Town', name='Town'),
+        dict(id='Total (mi)', name='Total Miles', type='numeric', format=fixed),
+        dict(id='25 Pct', name='Wandrer Target', type='numeric', format=fixed),
+        dict(id='Actual Pct', name='Actual Pct', type='numeric', format=percentage),
+        dict(id='Actual (mi)', name='Actual Miles', type='numeric', format=fixed),
+        dict(id='pbpFIPS', name='pbpFIPS'),
+        # dict(id='OBJECTID', name='OBJECTID'),
+        # dict(id='Primary', name='Primary'),
+        dict(id='Zoom', name='Zoom')
+    ]
+
+    df_cleaned_towns = pd.read_json(county_data_json, orient='split')
+
+    town_table_data = DataTable(
+        style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
+        columns=town_columns,
+        data=df_cleaned_towns.to_dict('records'),
+        # page_size=20,
+        style_table={'overflowX': 'scroll', 'overflowY': 'scroll'},
+        id='town_table'
+    )
+
+    return town_table_data, 'WandrerQuest data for ' + selected_county + ' county', town_table_data
+
+
+@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+          Output('county_map_cache', 'data'),
+          Input('county_data_store', 'data'),
+          State('county_dropdown', 'value'),
+          State('state_dropdown', 'value'),
+          State('state_geometry_json_store', 'data'),
+          # State('state_table_store', 'data'),
+          # State('town_table_store', 'data'),
+          prevent_initial_call=True)
+def create_town_map_from_county_data_store(county_data_json, selected_county, selected_state, state_geometry_json):
+    print('\ncallback create_town_map_from_county_data_store, triggered by ' + ctx.triggered_id)
+
+    df_cleaned_towns = pd.read_json(county_data_json, orient='split')
+
+    county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
+                                                   state_geometry_json)
+
+    return county_map, county_map
 
 
 def get_town_json_for_town(locations_field, location_id, county_json):
@@ -670,7 +736,7 @@ def get_town_json_for_town(locations_field, location_id, county_json):
     State('summary_data_store', 'data'),
     State('state_geometry_json_store', 'data'),
     State('county_map_cache', 'data'),
-    State('county_data', 'data'), prevent_initial_call=True)
+    State('county_data_store', 'data'), prevent_initial_call=True)
 def create_town_map(selected_town, selected_state, selected_county, summary_data, county_json, cached_county_map,
                     county_data):
     # TODO: Refactor this large callback into smaller chained ones that output just a single element. Each should be easier to make clientside.
@@ -756,7 +822,7 @@ def state_table_cell_clicked(active_table, active_cell):
 
 @callback(Output('town_dropdown', 'value'),
           # State('county_dropdown', 'value'),
-          State('town_table_cache', 'data'),
+          State('town_table_store', 'data'),
           Input('town_table', 'active_cell'))
 def town_table_cell_clicked(active_table, active_cell):
     if not active_cell:
