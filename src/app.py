@@ -106,11 +106,12 @@ def create_state_map(chosen_state, df_cleaned_summary):
                                zoom=zoom,
                                center={"lat": latitude, "lon": longitude},
                                opacity=0.75,
-                               range_color=[0, .4],
-                               hover_data=['County'],
+                               range_color=[0, .5],
+                               hover_data={'County': True, 'Actual Pct': ':.2%'},
                                height=700
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+    fig.update_coloraxes(colorbar_tickformat='.0%')
     return fig
 
 
@@ -470,9 +471,10 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
                                center={"lat": county_latitude, "lon": county_longitude},
                                opacity=0.75,
                                range_color=[0, 1],
-                               hover_data=['County', 'Town']
+                               hover_data={'County': True, 'Town': True, 'Actual Pct': ':.2%'},
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+    fig.update_coloraxes(colorbar_tickformat='.0%')
     return fig
 
 
@@ -691,7 +693,7 @@ def create_town_table_from_county_data_store(county_data_json):
     print('\ncallback create_town_table_from_county_data_store, triggered by ' + ctx.triggered_id)
 
     town_columns = [
-        dict(id='State', name='State'),
+        # dict(id='State', name='State'),
         dict(id='County', name='County'),
         dict(id='Town', name='Town'),
         dict(id='Total (mi)', name='Total Miles', type='numeric', format=fixed),
@@ -711,7 +713,9 @@ def create_town_table_from_county_data_store(county_data_json):
         columns=town_columns,
         data=df_cleaned_towns.to_dict('records'),
         # page_size=20,
-        style_table={'overflowX': 'scroll', 'overflowY': 'scroll'},
+        fixed_rows={'headers': True},
+        style_table={'minHeight': '700px', 'height': '600px', 'maxHeight': '600px'},
+        # style_table={'overflowX': 'scroll', 'overflowY': 'scroll'},
         id='town_table'
     )
 
@@ -816,8 +820,8 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     # print('---Triggered by: ' + ctx.triggered_id)
     if not selected_town:
         print('...returning from create_town_map early because town not chosen')
-        # return cached_county_map
-        raise PreventUpdate
+        return cached_county_map
+        # raise PreventUpdate
 
     if not selected_county:
         print('...returning from create_town_map early because county not chosen')
@@ -869,9 +873,10 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
                                center={"lat": town_latitude, "lon": town_longitude},
                                opacity=0.5,
                                range_color=[0, 1],
-                               hover_data=['County', 'Town']
+                               hover_data={'County': True, 'Town': True, 'Actual Pct': ':.2%'},
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+    fig.update_coloraxes(colorbar_tickformat='.0%')
     return fig
 
 
@@ -912,7 +917,7 @@ def town_table_cell_clicked(active_table, active_cell):
 def map_clicked(clickData):
     # print(clickData)
 
-    if len(clickData['points'][0]['customdata']) == 1:
+    if len(clickData['points'][0]['customdata']) == 2:
         county = clickData['points'][0]['customdata'][0]
         print('\ncallback map_clicked on county ' + county)
         return county, dash.no_update
