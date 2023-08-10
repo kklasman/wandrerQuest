@@ -186,6 +186,8 @@ card_main_form = dbc.Card(
                 dbc.Col(dcc.Store(id='state_table_store')),
                 dbc.Col(dcc.Store(id='county_map_cache')),
                 dbc.Col(dcc.Store(id='town_table_store')),
+                # signal value to trigger callbacks
+                dbc.Col(dcc.Store(id='redisplay_map_signal')),
             ])
         ],
         ),
@@ -198,8 +200,8 @@ card_main_form = dbc.Card(
 card_graph = dbc.Card([
     # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
     dcc.Graph(id='my_choropleth', figure=create_region_map(), className="h-100"),
-    # signal value to trigger callbacks
-    dcc.Store(id='redisplay_map_signal')
+    # # signal value to trigger callbacks
+    # dcc.Store(id='redisplay_map_signal')
     ],
     body=True, color="secondary",
     # style={"height": 875},
@@ -387,51 +389,51 @@ def get_center_coords_from_town_json(town_json, oid, locations_field):
     return avgLat, avgLon
 
 
-def create_county_map(df_towns, selected_state, selected_county, town_json):
-    print("\nfunction create_county_map")
-
-    if not selected_county:
-        print('...returning from create_county_map early because county not chosen')
-        return
-
-    print('...county_dropdown: ' + selected_county)
-    # print('town_dropdown: ' + df_towns)
-    # print(df)
-
-    # print(df_towns)
-
-    # Some towns have multiple rows, but only the most important will have 'Y'
-    primary_town = df_towns[df_towns['Primary'] == 'Y']
-    primary_town.reset_index(inplace=True)  # ensure the only row remaining has id = 0
-
-    oid = int(primary_town.OBJECTID[0])
-    print(oid)
-
-    county_latitude = float(df_StateWQData[
-                                (df_StateWQData['State'] == selected_state) & (
-                                        df_StateWQData['CountyName'] == selected_county)].cLatitude)
-    county_longitude = float(df_StateWQData[
-                                 (df_StateWQData['State'] == selected_state) & (
-                                         df_StateWQData['CountyName'] == selected_county)].cLongitude)
-    county_zoom = float(df_StateWQData[
-                            (df_StateWQData['State'] == selected_state) & (
-                                    df_StateWQData['CountyName'] == selected_county)].Zoom)
-
-    dff = df_StateWQData[
-        (df_StateWQData['State'] == selected_state) & (df_StateWQData['CountyName'] == selected_county)]
-    locations_field = dff.iloc[0]['GeoidPropertyName']
-
-    fig = px.choropleth_mapbox(df_towns, geojson=town_json, locations=locations_field, color='Actual Pct',
-                               color_continuous_scale=my_color_scale,
-                               mapbox_style="carto-positron",
-                               zoom=county_zoom,
-                               center={"lat": county_latitude, "lon": county_longitude},
-                               opacity=0.75,
-                               range_color=[0, 1],
-                               hover_data=['County', 'Town']
-                               )
-    fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
-    return fig
+# def create_county_map(df_towns, selected_state, selected_county, town_json):
+#     print("\nfunction create_county_map")
+#
+#     if not selected_county:
+#         print('...returning from create_county_map early because county not chosen')
+#         return
+#
+#     print('...county_dropdown: ' + selected_county)
+#     # print('town_dropdown: ' + df_towns)
+#     # print(df)
+#
+#     # print(df_towns)
+#
+#     # Some towns have multiple rows, but only the most important will have 'Y'
+#     primary_town = df_towns[df_towns['Primary'] == 'Y']
+#     primary_town.reset_index(inplace=True)  # ensure the only row remaining has id = 0
+#
+#     oid = int(primary_town.OBJECTID[0])
+#     print(oid)
+#
+#     county_latitude = float(df_StateWQData[
+#                                 (df_StateWQData['State'] == selected_state) & (
+#                                         df_StateWQData['CountyName'] == selected_county)].cLatitude)
+#     county_longitude = float(df_StateWQData[
+#                                  (df_StateWQData['State'] == selected_state) & (
+#                                          df_StateWQData['CountyName'] == selected_county)].cLongitude)
+#     county_zoom = float(df_StateWQData[
+#                             (df_StateWQData['State'] == selected_state) & (
+#                                     df_StateWQData['CountyName'] == selected_county)].Zoom)
+#
+#     dff = df_StateWQData[
+#         (df_StateWQData['State'] == selected_state) & (df_StateWQData['CountyName'] == selected_county)]
+#     locations_field = dff.iloc[0]['GeoidPropertyName']
+#
+#     fig = px.choropleth_mapbox(df_towns, geojson=town_json, locations=locations_field, color='Actual Pct',
+#                                color_continuous_scale=my_color_scale,
+#                                mapbox_style="carto-positron",
+#                                zoom=county_zoom,
+#                                center={"lat": county_latitude, "lon": county_longitude},
+#                                opacity=0.75,
+#                                range_color=[0, 1],
+#                                hover_data=['County', 'Town']
+#                                )
+#     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+#     return fig
 
 
 def create_county_map_from_state_data(df_towns, selected_state, selected_county, town_json):
@@ -534,6 +536,7 @@ def update_state_table_store(summary_data, selected_state):
     )
     return table_data
 
+
 clientside_callback(
     """
     function(state_table_data, selected_state) {
@@ -568,12 +571,27 @@ def update_state_map_store(summary_data, selected_state):
     return state_map
 
 
-@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
-          Input('state_map_store', 'data'),
-          State('state_dropdown', 'value'), prevent_initial_call=True)
-def update_state_map_figure(state_map_store, selected_state):
-    print('\ncallback update_state_map_figure for state: ' + selected_state)
-    return state_map_store
+# @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+#           Input('state_map_store', 'data'),
+#           State('state_dropdown', 'value'), prevent_initial_call=True)
+# def update_state_map_figure(state_map_store, selected_state):
+#     print('\ncallback update_state_map_figure for state: ' + selected_state)
+#     return state_map_store
+
+clientside_callback(
+    """
+    function(state_map_store, selected_state) {
+    if (selected_state == undefined) {
+        return {}
+        } else {
+            return state_map_store
+       }
+     }
+    """,
+    Output('my_choropleth', 'figure', allow_duplicate=True),
+    Input('state_map_store', 'data'),
+    State('state_dropdown', 'value'),
+    prevent_initial_call=True)
 
 
 @callback(Output('state_geometry_json_store', 'data'),
@@ -649,11 +667,16 @@ def county_dropdown_clicked(selected_county, selected_state, summary_data, count
 def redisplay_map(signal, county_map, state_map, selected_state, state_table, selected_county):
     # print(signal)
     map_name = signal.get('map_to_redisplay')
-    print('\ncallback redisplay_map for ' + selected_state)
-    print('...map_name: ' + map_name)
+    # print('\ncallback redisplay_map for ' + selected_state)
+    print('\ncallback redisplay_map for map_name: ' + map_name)
+    print('...triggered by ' + ctx.triggered_id)
+    # print('...map_name: ' + map_name)
 
     if map_name == 'none':
+        print('...PreventUpdate')
         raise PreventUpdate
+        # return dash.no_update, dash.no_update, ''
+        # return blank_figure(), dash.no_update, ''
 
     if map_name == 'county':
         return county_map, dash.no_update, 'WandrerQuest data for ' + selected_county + ' county'
@@ -661,13 +684,10 @@ def redisplay_map(signal, county_map, state_map, selected_state, state_table, se
         return state_map, state_table, 'WandrerQuest data for ' + selected_state
 
 
-@callback(Output('table', 'children', allow_duplicate=True),
-          Output('data_card_header', 'children', allow_duplicate=True),
-          Output('town_table_store', 'data'),
+@callback(Output('town_table_store', 'data'),
           Input('county_data_store', 'data'),
-          State('county_dropdown', 'value'),
           prevent_initial_call=True)
-def create_town_table_from_county_data_store(county_data_json, selected_county):
+def create_town_table_from_county_data_store(county_data_json):
     print('\ncallback create_town_table_from_county_data_store, triggered by ' + ctx.triggered_id)
 
     town_columns = [
@@ -695,27 +715,77 @@ def create_town_table_from_county_data_store(county_data_json, selected_county):
         id='town_table'
     )
 
-    return town_table_data, 'WandrerQuest data for ' + selected_county + ' county', town_table_data
+    return town_table_data
+
+# clientside_callback(
+#     """
+#     function(town_table_data) {
+#             return [town_table_data]
+#      }
+#     """,
+#     Output('table', 'children', allow_duplicate=True),
+#     # Output('data_card_header', 'children', allow_duplicate=True),
+#     Input('town_table_store', 'data'),
+#     State('county_dropdown', 'value'),
+#     prevent_initial_call=True)
 
 
-@callback(Output('my_choropleth', 'figure', allow_duplicate=True),
-          Output('county_map_cache', 'data'),
+clientside_callback(
+    """
+    function(town_table_data, selected_county) {
+    if (selected_county == undefined) {
+        return ['', 'Select a county to show town data below']
+        } else {
+            return [town_table_data, 'WandrerQuest data for ' + selected_county + ' county']
+       }
+     }
+    """,
+    Output('table', 'children', allow_duplicate=True),
+    Output('data_card_header', 'children', allow_duplicate=True),
+    Input('town_table_store', 'data'),
+    State('county_dropdown', 'value'),
+    prevent_initial_call=True)
+
+
+@callback(Output('county_map_cache', 'data'),
           Input('county_data_store', 'data'),
           State('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
           State('state_geometry_json_store', 'data'),
-          # State('state_table_store', 'data'),
-          # State('town_table_store', 'data'),
           prevent_initial_call=True)
-def create_town_map_from_county_data_store(county_data_json, selected_county, selected_state, state_geometry_json):
-    print('\ncallback create_town_map_from_county_data_store, triggered by ' + ctx.triggered_id)
+def create_county_map_from_county_data_store(county_data_json, selected_county, selected_state, state_geometry_json):
+    print('\ncallback create_county_map_from_county_data_store, triggered by ' + ctx.triggered_id)
 
     df_cleaned_towns = pd.read_json(county_data_json, orient='split')
 
     county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
                                                    state_geometry_json)
 
-    return county_map, county_map
+    return county_map
+
+
+# @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+#           Input('county_map_cache', 'data'),
+#           State('county_dropdown', 'value'), prevent_initial_call=True)
+# def update_county_map_figure(county_map_store, selected_county):
+#     print('\ncallback update_county_map_figure for county: ' + selected_county)
+#     return county_map_store
+
+clientside_callback(
+    """
+    function(county_map_cache, selected_county) {
+    if (selected_county == undefined) {
+        return {}
+        } else {
+            return county_map_cache
+       }
+     }
+    """,
+    Output('my_choropleth', 'figure', allow_duplicate=True),
+    Input('county_map_cache', 'data'),
+    State('county_dropdown', 'value'),
+    prevent_initial_call=True)
+
 
 
 def get_town_json_for_town(locations_field, location_id, county_json):
@@ -746,7 +816,8 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     # print('---Triggered by: ' + ctx.triggered_id)
     if not selected_town:
         print('...returning from create_town_map early because town not chosen')
-        return cached_county_map
+        # return cached_county_map
+        raise PreventUpdate
 
     if not selected_county:
         print('...returning from create_town_map early because county not chosen')
