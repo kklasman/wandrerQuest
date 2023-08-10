@@ -686,6 +686,33 @@ def redisplay_map(signal, county_map, state_map, selected_state, state_table, se
         return state_map, state_table, 'WandrerQuest data for ' + selected_state
 
 
+# @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
+#           Input('redisplay_map_signal', 'data'),
+#           State('state_map_store', 'data'),
+#           State('state_dropdown', 'value'),
+#           State('state_table_store', 'data'),
+#           # State('county_dropdown', 'value'),
+#           prevent_initial_call=True)
+# def redisplay_state_map(signal, state_map, selected_state, state_table):
+#     # print(signal)
+#     map_name = signal.get('map_to_redisplay')
+#     # print('\ncallback redisplay_state_map for ' + selected_state)
+#     print('\ncallback redisplay_state_map for map_name: ' + map_name)
+#     print('...triggered by ' + ctx.triggered_id)
+#     # print('...map_name: ' + map_name)
+#
+#     if map_name == 'none':
+#         print('...PreventUpdate')
+#         raise PreventUpdate
+#         # return dash.no_update, dash.no_update, ''
+#         # return blank_figure(), dash.no_update, ''
+#
+#     # if map_name == 'county':
+#     #     return county_map, dash.no_update, 'WandrerQuest data for ' + selected_county + ' county'
+#     # else:
+#     return state_map  # state_table, 'WandrerQuest data for ' + selected_state
+
+
 @callback(Output('town_table_store', 'data'),
           Input('county_data_store', 'data'),
           prevent_initial_call=True)
@@ -781,6 +808,7 @@ clientside_callback(
     if (selected_county == undefined) {
         return {}
         } else {
+            console.log('clientside_callback: county_map_cache');
             return county_map_cache
        }
      }
@@ -928,7 +956,7 @@ def map_clicked(clickData):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
-    # app.run_server(debug=False)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
