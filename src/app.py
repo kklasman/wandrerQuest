@@ -25,7 +25,8 @@ server = app.server
 percentage = FormatTemplate.percentage(2)
 fixed = Format(precision=2, scheme=Scheme.fixed)
 
-my_color_scale = ['white', 'gold', 'red']
+pct_miles_color_scale = ['white', 'gold', 'red']
+pct_towns_color_scale = ['white', 'gold', 'red', 'blue']
 
 latitude = 44.18294737
 longitude = -69.25990211
@@ -38,6 +39,7 @@ summary_columns = [
     dict(id='Actual Pct', name='Wandrer Pct', type='numeric', format=percentage),
     dict(id='Actual (mi)', name='Miles Ridden', type='numeric', format=fixed),
     dict(id='Total Towns', name='Total Towns'),
+    dict(id='Pct Towns Cycled', name='Towns Cycled', type='numeric', format=percentage),
     dict(id='geoid', name='Geo Id')
 ]
 
@@ -61,10 +63,10 @@ def load_state_summary(selected_state):
     # print('\nloading df_summary...')
     if selected_state == 'New England':
         df_summary = pd.read_excel(onedrive_direct_link,
-                                   usecols=[0, 1, 3, 5, 8, 9, 21, 29], nrows=countyCount)
+                                   usecols=[0, 1, 3, 5, 8, 9, 19, 21, 29], nrows=countyCount)
     else:
         df_summary = pd.read_excel(onedrive_direct_link,
-                                   usecols=[0, 2, 4, 7, 8, 20, 28], nrows=countyCount)
+                                   usecols=[0, 2, 4, 7, 8, 18, 20, 28], nrows=countyCount)
     # print('\df_summary:')
     # print(df_summary)
 
@@ -85,7 +87,7 @@ def get_county_json(chosen_state):
     return counties
 
 
-def create_state_map(chosen_state, df_cleaned_summary):
+def create_state_map(chosen_state, df_cleaned_summary, color_field):
     print("\nfunction create_state_map: " + chosen_state)
     df_state = df_StateWQData.loc[df_StateWQData.State == chosen_state]
 
@@ -100,14 +102,21 @@ def create_state_map(chosen_state, df_cleaned_summary):
     counties['features'] = [f for f in counties['features'] if
                             f['properties'][geoidPropertyName] in df_cleaned_summary[geoidPropertyName].unique()]
 
-    fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color='Actual Pct',
-                               color_continuous_scale=my_color_scale,
+    if color_field == 'Actual Pct':
+        color_scale = pct_miles_color_scale
+        color_range = .5
+    else:
+        color_scale = pct_towns_color_scale
+        color_range = 1
+
+    fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color=color_field,
+                               color_continuous_scale=color_scale,
                                mapbox_style="carto-positron",
                                zoom=zoom,
                                center={"lat": latitude, "lon": longitude},
                                opacity=0.75,
-                               range_color=[0, .5],
-                               hover_data={'County': True, 'Actual Pct': ':.2%'},
+                               range_color=[0, color_range],
+                               hover_data={'County': True, 'Actual Pct': ':.2%', 'Pct Towns Cycled': ':.2%'},
                                height=700
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
@@ -115,7 +124,7 @@ def create_state_map(chosen_state, df_cleaned_summary):
     return fig
 
 
-def create_region_map():
+def create_region_map(color_field):
     selected_state = 'New England'
 
     df_summary = load_state_summary(selected_state)
@@ -126,7 +135,7 @@ def create_region_map():
     cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
 
     # create state map
-    region_map = create_state_map(selected_state, df_cleaned_summary)
+    region_map = create_state_map(selected_state, df_cleaned_summary, color_field)
     return region_map
 
 
@@ -199,10 +208,24 @@ card_main_form = dbc.Card(
 )
 
 card_graph = dbc.Card([
-    # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
-    dcc.Graph(id='my_choropleth', figure=create_region_map(), className="h-100"),
-    # # signal value to trigger callbacks
-    # dcc.Store(id='redisplay_map_signal')
+    dbc.Row([
+        dcc.RadioItems
+            (
+                id='percent_field',
+                options=[
+                    {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled'},
+                    {'label': '  Wandrer Pct', 'value': 'Actual Pct'}
+                ],
+                value='Pct Towns Cycled',
+                # inline=True,
+                labelStyle={'display': 'inline-block', 'margin-right': '20px', 'margin-left': '5px'}
+            )
+        ],
+        className='border py-2 mb-4 fs-5 text-white'),
+    dbc.Row([
+        # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
+        dcc.Graph(id='my_choropleth', figure=create_region_map('Pct Towns Cycled'), className="h-100")
+            ])
     ],
     body=True, color="secondary",
     # style={"height": 875},
@@ -390,53 +413,6 @@ def get_center_coords_from_town_json(town_json, oid, locations_field):
     return avgLat, avgLon
 
 
-# def create_county_map(df_towns, selected_state, selected_county, town_json):
-#     print("\nfunction create_county_map")
-#
-#     if not selected_county:
-#         print('...returning from create_county_map early because county not chosen')
-#         return
-#
-#     print('...county_dropdown: ' + selected_county)
-#     # print('town_dropdown: ' + df_towns)
-#     # print(df)
-#
-#     # print(df_towns)
-#
-#     # Some towns have multiple rows, but only the most important will have 'Y'
-#     primary_town = df_towns[df_towns['Primary'] == 'Y']
-#     primary_town.reset_index(inplace=True)  # ensure the only row remaining has id = 0
-#
-#     oid = int(primary_town.OBJECTID[0])
-#     print(oid)
-#
-#     county_latitude = float(df_StateWQData[
-#                                 (df_StateWQData['State'] == selected_state) & (
-#                                         df_StateWQData['CountyName'] == selected_county)].cLatitude)
-#     county_longitude = float(df_StateWQData[
-#                                  (df_StateWQData['State'] == selected_state) & (
-#                                          df_StateWQData['CountyName'] == selected_county)].cLongitude)
-#     county_zoom = float(df_StateWQData[
-#                             (df_StateWQData['State'] == selected_state) & (
-#                                     df_StateWQData['CountyName'] == selected_county)].Zoom)
-#
-#     dff = df_StateWQData[
-#         (df_StateWQData['State'] == selected_state) & (df_StateWQData['CountyName'] == selected_county)]
-#     locations_field = dff.iloc[0]['GeoidPropertyName']
-#
-#     fig = px.choropleth_mapbox(df_towns, geojson=town_json, locations=locations_field, color='Actual Pct',
-#                                color_continuous_scale=my_color_scale,
-#                                mapbox_style="carto-positron",
-#                                zoom=county_zoom,
-#                                center={"lat": county_latitude, "lon": county_longitude},
-#                                opacity=0.75,
-#                                range_color=[0, 1],
-#                                hover_data=['County', 'Town']
-#                                )
-#     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
-#     return fig
-
-
 def create_county_map_from_state_data(df_towns, selected_state, selected_county, town_json):
     if not selected_county:
         print('...returning from create_county_map_from_state_data early because county not chosen')
@@ -465,7 +441,7 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
     print('...locations_field: ' + locations_field)
 
     fig = px.choropleth_mapbox(df_towns, geojson=town_json, locations=locations_field, color='Actual Pct',
-                               color_continuous_scale=my_color_scale,
+                               color_continuous_scale=pct_miles_color_scale,
                                mapbox_style="carto-positron",
                                zoom=zoom,
                                center={"lat": county_latitude, "lon": county_longitude},
@@ -560,15 +536,17 @@ clientside_callback(
 
 @callback(Output('state_map_store', 'data'),
           Input('summary_data_store', 'data'),
-          State('state_dropdown', 'value'), prevent_initial_call=True)
+          State('state_dropdown', 'value'),
+          State('percent_field', 'value'),
+          prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
-def update_state_map_store(summary_data, selected_state):
+def update_state_map_store(summary_data, selected_state, percent_field):
     print('\ncallback update_state_map_store')
 
     df_cleaned_summary = pd.read_json(summary_data, orient='split')
 
     # create state map
-    state_map = create_state_map(selected_state, df_cleaned_summary)
+    state_map = create_state_map(selected_state, df_cleaned_summary, percent_field)
 
     return state_map
 
@@ -603,7 +581,17 @@ def update_state_geometry_json_store(selected_state):
     print('\ncallback update_state_geometry_json_store')
 
     # get state geometry json and store
-    state_geometry_json = get_town_json_for_state(selected_state)
+    # state_geometry_json = get_town_json_for_state(selected_state)
+    if selected_state == 'Maine':
+        r = open('../geojsonFiles/Maine_Town_and_Townships_Boundary_Polygons_Feature.json')
+        # r = open('New_England_County_Boundaries.geojson.json')
+    elif selected_state == 'New Hampshire':
+        # r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
+        r = open('../geojsonFiles/New_Hampshire_Political_Boundaries_4.json')
+    else:
+        r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
+
+    state_geometry_json = json.load(r)
 
     return state_geometry_json
 
@@ -895,7 +883,7 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
         print('...town_longitude: ' + str(town_longitude))
 
     fig = px.choropleth_mapbox(df_town_data, geojson=town_json, locations=locations_field, color='Actual Pct',
-                               color_continuous_scale=my_color_scale,
+                               color_continuous_scale=pct_miles_color_scale,
                                mapbox_style="carto-positron",
                                zoom=town_zoom,
                                center={"lat": town_latitude, "lon": town_longitude},
@@ -945,18 +933,19 @@ def town_table_cell_clicked(active_table, active_cell):
 def map_clicked(clickData):
     # print(clickData)
 
-    if len(clickData['points'][0]['customdata']) == 2:
-        county = clickData['points'][0]['customdata'][0]
-        print('\ncallback map_clicked on county ' + county)
-        return county, dash.no_update
-    else:
-        town = clickData['points'][0]['customdata'][1]
-        print('\ncallback map_clicked on town ' + town)
-        return dash.no_update, town
+    if len(clickData['points'][0]['customdata']) == 3:
+        if isinstance(clickData['points'][0]['customdata'][1], float):
+            county = clickData['points'][0]['customdata'][0]
+            print('\ncallback map_clicked on county ' + county)
+            return county, dash.no_update
+        else:
+            town = clickData['points'][0]['customdata'][1]
+            print('\ncallback map_clicked on town ' + town)
+            return dash.no_update, town
 
 
 if __name__ == "__main__":
-    # app.run_server(debug=True)
-    app.run_server(debug=False)
+    app.run_server(debug=True)
+    # app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")
