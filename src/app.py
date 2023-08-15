@@ -26,7 +26,7 @@ percentage = FormatTemplate.percentage(2)
 fixed = Format(precision=2, scheme=Scheme.fixed)
 
 pct_miles_color_scale = ['white', 'gold', 'red']
-pct_towns_color_scale = ['white', 'gold', 'red', 'blue']
+pct_towns_color_scale = ['white', 'gold', 'orange', 'red']
 
 latitude = 44.18294737
 longitude = -69.25990211
@@ -37,7 +37,7 @@ summary_columns = [
     dict(id='Total (mi)', name='Total Miles', type='numeric', format=fixed),
     dict(id='25 Pct', name='25% Target Miles', type='numeric', format=fixed),
     dict(id='Actual Pct', name='Wandrer Pct', type='numeric', format=percentage),
-    dict(id='Actual (mi)', name='Miles Ridden', type='numeric', format=fixed),
+    dict(id='Actual (mi)', name='Miles Cycled', type='numeric', format=fixed),
     dict(id='Total Towns', name='Total Towns'),
     dict(id='Pct Towns Cycled', name='Towns Cycled', type='numeric', format=percentage),
     dict(id='geoid', name='Geo Id')
@@ -214,7 +214,7 @@ card_graph = dbc.Card([
                 id='percent_field',
                 options=[
                     {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled'},
-                    {'label': '  Wandrer Pct', 'value': 'Actual Pct'}
+                    {'label': '  Pct Miles Cycled', 'value': 'Actual Pct'}
                 ],
                 value='Pct Towns Cycled',
                 # inline=True,
@@ -532,6 +532,15 @@ clientside_callback(
 )
 
 
+@callback(Output('state_map_store', 'data', allow_duplicate=True),
+          Input('percent_field', 'value'),
+          State('summary_data_store', 'data'),
+          State('state_dropdown', 'value'),
+          prevent_initial_call=True)
+def callback_toggle_percent_field(percent_field, summary_data, selected_state):
+    df_cleaned_summary = pd.read_json(summary_data, orient='split')
+    state_map = create_state_map(selected_state, df_cleaned_summary, percent_field)
+    return state_map
 
 
 @callback(Output('state_map_store', 'data'),
