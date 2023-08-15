@@ -213,8 +213,8 @@ card_graph = dbc.Card([
             (
                 id='percent_field',
                 options=[
-                    {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled'},
-                    {'label': '  Pct Miles Cycled', 'value': 'Actual Pct'}
+                    {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled', 'disabled': False},
+                    {'label': '  Pct Miles Cycled', 'value': 'Actual Pct', 'disabled': False}
                 ],
                 value='Pct Towns Cycled',
                 # inline=True,
@@ -623,15 +623,18 @@ def update_state_geometry_json_store(selected_state):
 #
 #     raise PreventUpdate
 
+
 @callback(Output('town_dropdown', 'options'),
           Output('county_data_store', 'data'),
           Output('redisplay_map_signal', 'data'),
+          Output('percent_field', 'options'),
           Input('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
           State('summary_data_store', 'data'),
-          State('county_data_store', 'data'),
+          # State('county_data_store', 'data'),
+          State('percent_field', 'options'),
           prevent_initial_call=True)
-def county_dropdown_clicked(selected_county, selected_state, summary_data, county_data):
+def county_dropdown_clicked(selected_county, selected_state, summary_data, radiobutton_options):
     print('\ncallback county_dropdown_clicked, called by ' + ctx.triggered_id)
 
     if not selected_state:
@@ -640,7 +643,9 @@ def county_dropdown_clicked(selected_county, selected_state, summary_data, count
 
     if not selected_county:
         print('...selected_county not provided.')
-        return [''], dash.no_update, {'map_to_redisplay': 'state'}
+        radiobutton_options[0]['disabled'] = False
+        radiobutton_options[1]['disabled'] = False
+        return [''], dash.no_update, {'map_to_redisplay': 'state'}, radiobutton_options
 
     if selected_state == 'New England':
         print('...selected_state: ' + selected_state + ' not coded yet')
@@ -650,20 +655,24 @@ def county_dropdown_clicked(selected_county, selected_state, summary_data, count
     df_cleaned_towns = df_towns.dropna()
     cleaned_towns_json = df_cleaned_towns.to_json(orient='split')
 
-    return df_towns.Town.unique(), cleaned_towns_json, {'map_to_redisplay': 'none'}
+    radiobutton_options[0]['disabled'] = True
+    radiobutton_options[1]['disabled'] = True
+    return df_towns.Town.unique(), cleaned_towns_json, {'map_to_redisplay': 'none'}, radiobutton_options
 
 
 @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
           Output('table', 'children', allow_duplicate=True),
           Output('data_card_header', 'children', allow_duplicate=True),
+          Output('percent_field', 'options', allow_duplicate=True),
           Input('redisplay_map_signal', 'data'),
           State('county_map_cache', 'data'),
           State('state_map_store', 'data'),
           State('state_dropdown', 'value'),
           State('state_table_store', 'data'),
           State('county_dropdown', 'value'),
+          State('percent_field', 'options'),
           prevent_initial_call=True)
-def redisplay_map(signal, county_map, state_map, selected_state, state_table, selected_county):
+def redisplay_map(signal, county_map, state_map, selected_state, state_table, selected_county, radiobutton_options):
     # print(signal)
     map_name = signal.get('map_to_redisplay')
     # print('\ncallback redisplay_map for ' + selected_state)
@@ -678,9 +687,11 @@ def redisplay_map(signal, county_map, state_map, selected_state, state_table, se
         # return blank_figure(), dash.no_update, ''
 
     if map_name == 'county':
-        return county_map, dash.no_update, 'WandrerQuest data for ' + selected_county + ' county'
+        return county_map, dash.no_update, 'WandrerQuest data for ' + selected_county + ' county', radiobutton_options
     else:
-        return state_map, state_table, 'WandrerQuest data for ' + selected_state
+        radiobutton_options[0]['disabled'] = False
+        radiobutton_options[1]['disabled'] = False
+        return state_map, state_table, 'WandrerQuest data for ' + selected_state, radiobutton_options
 
 
 # @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
