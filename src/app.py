@@ -474,7 +474,7 @@ def get_county_json_for_state(chosen_state, chosen_county):
 def get_county_json_for_new_hampshire(chosen_county):
     if chosen_county == 'Belknap':
         # r = open('../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json')
-        # counties = json.load(r)
+        # counties = json.load(r) # foobar
         # return counties
         return '../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json'
     elif chosen_county == 'Strafford':
