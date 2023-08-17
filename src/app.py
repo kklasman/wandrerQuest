@@ -471,6 +471,7 @@ def get_town_json_for_state(chosen_state):
 
 @callback(Output('county_dropdown', 'options'),
           Output('summary_data_store', 'data'),
+          Output('state_table_store', 'data'),
           Input('state_dropdown', 'value'), prevent_initial_call=True)
 # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
 def state_dropdown_clicked(selected_state):
@@ -492,17 +493,34 @@ def state_dropdown_clicked(selected_state):
     df_cleaned_summary = df_summary.dropna()
     cleaned_summary_json = df_cleaned_summary.to_json(orient='split')
 
-    return df_summary.County.unique(), cleaned_summary_json
+    state_table = create_state_table_store(df_cleaned_summary)
+    return df_summary.County.unique(), cleaned_summary_json, state_table
 
 
-@callback(Output('state_table_store', 'data'),
-          Input('summary_data_store', 'data'),
-          State('state_dropdown', 'value'), prevent_initial_call=True)
-# Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
-def update_state_table_store(summary_data, selected_state):
-    print('\ncallback update_state_table_store')
+# @callback(Output('state_table_store', 'data'),
+#           Input('summary_data_store', 'data'),
+#           State('state_dropdown', 'value'), prevent_initial_call=True)
+# # Input('state_dropdown', 'value'), prevent_initial_call='initial_duplicate')
+# def update_state_table_store(summary_data, selected_state):
+#     print('\ncallback update_state_table_store')
+#
+#     df_cleaned_summary = pd.read_json(summary_data, orient='split')
+#     # records = df_cleaned_summary.to_dict('records')
+#     table_data = DataTable(
+#         style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
+#         columns=summary_columns,
+#         data=df_cleaned_summary.to_dict('records'),
+#         # page_size=20,
+#         style_table={'overflowX': 'scroll'},
+#         id='state_table'
+#     )
+#     return table_data
 
-    df_cleaned_summary = pd.read_json(summary_data, orient='split')
+
+def create_state_table_store(df_cleaned_summary):
+    print('\nfunction create_state_table_store')
+
+    # df_cleaned_summary = pd.read_json(summary_data, orient='split')
     # records = df_cleaned_summary.to_dict('records')
     table_data = DataTable(
         style_header={'whiteSpace': 'normal', 'height': 'auto', 'fontWeight': 'bold', 'text-align': 'center'},
