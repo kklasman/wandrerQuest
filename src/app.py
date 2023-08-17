@@ -192,6 +192,7 @@ card_main_form = dbc.Card(
                 dbc.Col(dcc.Store(id='summary_data_store')),
                 dbc.Col(dcc.Store(id='county_data_store')),
                 dbc.Col(dcc.Store(id='state_geometry_json_store')),
+                dbc.Col(dcc.Store(id='county_geometry_json_store')),
                 dbc.Col(dcc.Store(id='state_map_store')),
                 dbc.Col(dcc.Store(id='state_table_store')),
                 dbc.Col(dcc.Store(id='county_map_cache')),
@@ -454,6 +455,35 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
     return fig
 
 
+def get_county_json_for_state(chosen_state, chosen_county):
+    print('function get_town_json_for_state ' + chosen_state)
+    if chosen_state == 'Maine':
+        r = open('../geojsonFiles/Maine_Town_and_Townships_Boundary_Polygons_Feature.json')
+        # r = open('New_England_County_Boundaries.geojson.json')
+    elif chosen_state == 'New Hampshire':
+        r = open(get_county_json_for_new_hampshire(chosen_county))
+        # r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
+        # r = open('../geojsonFiles?/New_Hampshire_Political_Boundaries_4.json')
+    else:
+        r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
+
+    counties = json.load(r)
+    return counties
+
+
+def get_county_json_for_new_hampshire(chosen_county):
+    if chosen_county == 'Belknap':
+        # r = open('../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json')
+        # counties = json.load(r)
+        # return counties
+        return '../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json'
+    elif chosen_county == 'Strafford':
+        return '../geojsonFiles/NewHampshire/New_Hampshire_Strafford_County_Boundaries.json'
+
+    else:
+        return '../geojsonFiles/New_Hampshire_Political_Boundaries_4.json'
+
+
 def get_town_json_for_state(chosen_state):
     print('function get_town_json_for_state ' + chosen_state)
     if chosen_state == 'Maine':
@@ -613,8 +643,8 @@ def update_state_geometry_json_store(selected_state):
         r = open('../geojsonFiles/Maine_Town_and_Townships_Boundary_Polygons_Feature.json')
         # r = open('New_England_County_Boundaries.geojson.json')
     elif selected_state == 'New Hampshire':
-        # r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
-        r = open('../geojsonFiles/New_Hampshire_Political_Boundaries_4.json')
+        r = open('../geojsonFiles/New_Hampshire_County_Boundaries.geojson.json')
+        # r = open('../geojsonFiles/New_Hampshire_Political_Boundaries_4.json')
     else:
         r = open('../geojsonFiles/New_England_County_Boundaries.geojson.json')
 
@@ -646,6 +676,7 @@ def update_state_geometry_json_store(selected_state):
           Output('county_data_store', 'data'),
           Output('redisplay_map_signal', 'data'),
           Output('percent_field', 'options'),
+          Output('county_geometry_json_store', 'data'),
           Input('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
           State('summary_data_store', 'data'),
@@ -675,7 +706,10 @@ def county_dropdown_clicked(selected_county, selected_state, summary_data, radio
 
     radiobutton_options[0]['disabled'] = True
     radiobutton_options[1]['disabled'] = True
-    return df_towns.Town.unique(), cleaned_towns_json, {'map_to_redisplay': 'none'}, radiobutton_options
+
+    county_json = get_county_json_for_state(selected_state, selected_county)
+
+    return df_towns.Town.unique(), cleaned_towns_json, {'map_to_redisplay': 'none'}, radiobutton_options, county_json
 
 
 @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
@@ -804,21 +838,39 @@ clientside_callback(
     prevent_initial_call=True)
 
 
+# @callback(Output('county_map_cache', 'data'),
+#           Input('county_data_store', 'data'),
+#           State('county_dropdown', 'value'),
+#           State('state_dropdown', 'value'),
+#           State('state_geometry_json_store', 'data'),
+#           prevent_initial_call=True)
+# def create_county_map_from_county_data_store(county_data_json, selected_county, selected_state, state_geometry_json):
+#     print('\ncallback create_county_map_from_county_data_store, triggered by ' + ctx.triggered_id)
+#
+#     df_cleaned_towns = pd.read_json(county_data_json, orient='split')
+#
+#     county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
+#                                                    state_geometry_json)
+#
+#     return county_map
+
 @callback(Output('county_map_cache', 'data'),
-          Input('county_data_store', 'data'),
+          Input('county_geometry_json_store', 'data'),
           State('county_dropdown', 'value'),
           State('state_dropdown', 'value'),
-          State('state_geometry_json_store', 'data'),
+          # State('state_geometry_json_store', 'data'),
+          State('county_data_store', 'data'),
           prevent_initial_call=True)
-def create_county_map_from_county_data_store(county_data_json, selected_county, selected_state, state_geometry_json):
+def create_county_map_from_county_geometry_json_store(county_geometry_json_store, selected_county, selected_state, county_data_store):
     print('\ncallback create_county_map_from_county_data_store, triggered by ' + ctx.triggered_id)
 
-    df_cleaned_towns = pd.read_json(county_data_json, orient='split')
+    df_cleaned_towns = pd.read_json(county_data_store, orient='split')
 
     county_map = create_county_map_from_state_data(df_cleaned_towns, selected_state, selected_county,
-                                                   state_geometry_json)
+                                                   county_geometry_json_store)
 
     return county_map
+
 
 
 # @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
@@ -972,7 +1024,7 @@ def map_clicked(clickData):
     # print(clickData)
 
     if len(clickData['points'][0]['customdata']) == 3:
-        if isinstance(clickData['points'][0]['customdata'][1], float):
+        if isinstance(clickData['points'][0]['customdata'][1], (int, float)):
             county = clickData['points'][0]['customdata'][0]
             print('\ncallback map_clicked on county ' + county)
             return county, dash.no_update
