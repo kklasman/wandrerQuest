@@ -25,8 +25,8 @@ server = app.server
 percentage = FormatTemplate.percentage(2)
 fixed = Format(precision=2, scheme=Scheme.fixed)
 
-pct_miles_color_scale = ['white', 'gold', 'red']
-pct_towns_color_scale = ['white', 'gold', 'orange', 'red']
+max_50_pct_color_scale = ['white', 'gold', 'red']
+max_100_pct_color_scale = ['white', 'gold', 'orange', 'red']
 
 latitude = 44.18294737
 longitude = -69.25990211
@@ -103,10 +103,10 @@ def create_state_map(chosen_state, df_cleaned_summary, color_field):
                             f['properties'][geoidPropertyName] in df_cleaned_summary[geoidPropertyName].unique()]
 
     if color_field == 'Actual Pct':
-        color_scale = pct_miles_color_scale
+        color_scale = max_50_pct_color_scale
         color_range = .5
     else:
-        color_scale = pct_towns_color_scale
+        color_scale = max_100_pct_color_scale
         color_range = 1
 
     fig = px.choropleth_mapbox(df_cleaned_summary, geojson=counties, locations=geoidPropertyName, color=color_field,
@@ -442,7 +442,7 @@ def create_county_map_from_state_data(df_towns, selected_state, selected_county,
     print('...locations_field: ' + locations_field)
 
     fig = px.choropleth_mapbox(df_towns, geojson=town_json, locations=locations_field, color='Actual Pct',
-                               color_continuous_scale=pct_miles_color_scale,
+                               color_continuous_scale=max_100_pct_color_scale,
                                mapbox_style="carto-positron",
                                zoom=zoom,
                                center={"lat": county_latitude, "lon": county_longitude},
@@ -984,7 +984,7 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
         print('...town_longitude: ' + str(town_longitude))
 
     fig = px.choropleth_mapbox(df_town_data, geojson=town_json, locations=locations_field, color='Actual Pct',
-                               color_continuous_scale=pct_miles_color_scale,
+                               color_continuous_scale=max_50_pct_color_scale,
                                mapbox_style="carto-positron",
                                zoom=town_zoom,
                                center={"lat": town_latitude, "lon": town_longitude},
