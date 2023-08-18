@@ -479,6 +479,12 @@ def get_county_json_for_new_hampshire(chosen_county):
         return '../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json'
     elif chosen_county == 'Strafford':
         return '../geojsonFiles/NewHampshire/New_Hampshire_Strafford_County_Boundaries.json'
+    elif chosen_county == 'Sullivan':
+        return '../geojsonFiles/NewHampshire/New_Hampshire_Sullivan_County_Boundaries.json'
+    elif chosen_county == 'Carroll':
+        return '../geojsonFiles/NewHampshire/New_Hampshire_Carroll_County_Boundaries.json'
+    elif chosen_county == 'Cheshire':
+        return '../geojsonFiles/NewHampshire/New_Hampshire_Cheshire_County_Boundaries.json'
 
     else:
         return '../geojsonFiles/New_Hampshire_Political_Boundaries_4.json'
@@ -694,7 +700,7 @@ def county_dropdown_clicked(selected_county, selected_state, summary_data, radio
         print('...selected_county not provided.')
         radiobutton_options[0]['disabled'] = False
         radiobutton_options[1]['disabled'] = False
-        return [''], dash.no_update, {'map_to_redisplay': 'state'}, radiobutton_options
+        return [''], dash.no_update, {'map_to_redisplay': 'state'}, radiobutton_options, dash.no_update
 
     if selected_state == 'New England':
         print('...selected_state: ' + selected_state + ' not coded yet')
