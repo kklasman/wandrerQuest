@@ -925,7 +925,7 @@ def get_town_json_for_town(locations_field, location_id, county_json):
     State(component_id='state_dropdown', component_property='value'),
     State(component_id='county_dropdown', component_property='value'),
     State('summary_data_store', 'data'),
-    State('state_geometry_json_store', 'data'),
+    State('county_geometry_json_store', 'data'),
     State('county_map_cache', 'data'),
     State('county_data_store', 'data'), prevent_initial_call=True)
 def create_town_map(selected_town, selected_state, selected_county, summary_data, county_json, cached_county_map,
