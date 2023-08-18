@@ -472,22 +472,27 @@ def get_county_json_for_state(chosen_state, chosen_county):
 
 
 def get_county_json_for_new_hampshire(chosen_county):
-    if chosen_county == 'Belknap':
-        # r = open('../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json')
-        # counties = json.load(r) # foobar
-        # return counties
-        return '../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json'
-    elif chosen_county == 'Strafford':
-        return '../geojsonFiles/NewHampshire/New_Hampshire_Strafford_County_Boundaries.json'
-    elif chosen_county == 'Sullivan':
-        return '../geojsonFiles/NewHampshire/New_Hampshire_Sullivan_County_Boundaries.json'
-    elif chosen_county == 'Carroll':
-        return '../geojsonFiles/NewHampshire/New_Hampshire_Carroll_County_Boundaries.json'
-    elif chosen_county == 'Cheshire':
-        return '../geojsonFiles/NewHampshire/New_Hampshire_Cheshire_County_Boundaries.json'
+    print('\nget_county_json_for_new_hampshire for ' + chosen_county + ' county')
+    return '../geojsonFiles/NewHampshire/New_Hampshire_' + chosen_county + '_County_Boundaries.json'
 
-    else:
-        return '../geojsonFiles/New_Hampshire_Political_Boundaries_4.json'
+    # if chosen_county == 'Belknap':
+    #     # r = open('../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json')
+    #     # counties = json.load(r) # foobar
+    #     # return counties
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Belknap_County_Boundaries.json'
+    # elif chosen_county == 'Strafford':
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Strafford_County_Boundaries.json'
+    # elif chosen_county == 'Sullivan':
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Sullivan_County_Boundaries.json'
+    # elif chosen_county == 'Carroll':
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Carroll_County_Boundaries.json'
+    # elif chosen_county == 'Cheshire':
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Cheshire_County_Boundaries.json'
+    # elif chosen_county == 'Coos':
+    #     return '../geojsonFiles/NewHampshire/New_Hampshire_Coos_County_Boundaries.json'
+    #
+    # else:
+    #     return '../geojsonFiles/New_Hampshire_Political_Boundaries_4.json'
 
 
 def get_town_json_for_state(chosen_state):
