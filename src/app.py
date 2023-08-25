@@ -5,6 +5,7 @@ from dash.dash_table.Format import Format, Scheme, Trim
 from dash.exceptions import PreventUpdate
 
 import dash_bootstrap_components as dbc
+import plotly.graph_objects as go
 
 import collections
 import pandas as pd
@@ -71,6 +72,28 @@ def load_state_summary(selected_state):
     # print(df_summary)
 
     return df_summary
+
+
+def load_state_historical_markers(selected_state):
+    # onedrive_link = "https://1drv.ms/x/s!An0k-SnslkINyjUdvZ4llcQGIT5V?e=hvKTIq"
+    df_state = df_StateWQData.loc[df_StateWQData.State == selected_state]
+    link = df_state.iloc[0]['StateHistoricalMarkerOneDriveLink']
+    # countyCount = df_state.iloc[0]['CountyCount']
+    onedrive_direct_link = create_onedrive_directdownload(link)
+
+    if selected_state == 'New Hampshire':
+        print('\nfunction load_state_historical_markers for ' + selected_state)
+        df_historical_markers = pd.read_excel(onedrive_direct_link, sheet_name='Highway Markers')
+        # df_markers.dropna(subset=['Latitude'])
+        # df_summary = pd.read_excel(onedrive_direct_link,
+        #                            usecols=[0, 1, 3, 5, 8, 9, 19, 21, 29], nrows=countyCount)
+    else:
+        return
+
+    # print('\df_summary:')
+    # print(df_summary)
+
+    return df_historical_markers.dropna(subset=['Latitude'])
 
 
 def get_county_json(chosen_state):
@@ -212,22 +235,22 @@ card_graph = dbc.Card([
     dbc.Row([
         dcc.RadioItems
             (
-                id='percent_field',
-                options=[
-                    {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled', 'disabled': False},
-                    {'label': '  Pct Miles Cycled', 'value': 'Actual Pct', 'disabled': False}
-                ],
-                value='Pct Towns Cycled',
-                # inline=True,
-                labelStyle={'display': 'inline-block', 'margin-right': '20px', 'margin-left': '5px'}
-            )
-        ],
+            id='percent_field',
+            options=[
+                {'label': '  Pct Towns Cycled', 'value': 'Pct Towns Cycled', 'disabled': False},
+                {'label': '  Pct Miles Cycled', 'value': 'Actual Pct', 'disabled': False}
+            ],
+            value='Pct Towns Cycled',
+            # inline=True,
+            labelStyle={'display': 'inline-block', 'margin-right': '20px', 'margin-left': '5px'}
+        )
+    ],
         className='border py-2 mb-4 fs-5 text-white'),
     dbc.Row([
         # dcc.Graph(id='my_choropleth', figure=usa_base_map(), className="h-100"),
         dcc.Graph(id='my_choropleth', figure=create_region_map('Pct Towns Cycled'), className="h-100")
-            ])
-    ],
+    ])
+],
     body=True, color="secondary",
     # style={"height": 875},
     className="p-4 bg-secondary",
@@ -663,6 +686,7 @@ def update_state_geometry_json_store(selected_state):
 
     return state_geometry_json
 
+
 # @callback(Output('redisplay_map_signal', 'data'),
 #           Input('county_dropdown', 'value'),
 #           State('state_dropdown', 'value'),
@@ -819,6 +843,7 @@ def create_town_table_from_county_data_store(county_data_json):
 
     return town_table_data
 
+
 # clientside_callback(
 #     """
 #     function(town_table_data) {
@@ -872,7 +897,8 @@ clientside_callback(
           # State('state_geometry_json_store', 'data'),
           State('county_data_store', 'data'),
           prevent_initial_call=True)
-def create_county_map_from_county_geometry_json_store(county_geometry_json_store, selected_county, selected_state, county_data_store):
+def create_county_map_from_county_geometry_json_store(county_geometry_json_store, selected_county, selected_state,
+                                                      county_data_store):
     print('\ncallback create_county_map_from_county_data_store, triggered by ' + ctx.triggered_id)
 
     df_cleaned_towns = pd.read_json(county_data_store, orient='split')
@@ -881,7 +907,6 @@ def create_county_map_from_county_geometry_json_store(county_geometry_json_store
                                                    county_geometry_json_store)
 
     return county_map
-
 
 
 # @callback(Output('my_choropleth', 'figure', allow_duplicate=True),
@@ -906,7 +931,6 @@ clientside_callback(
     Input('county_map_cache', 'data'),
     State('county_dropdown', 'value'),
     prevent_initial_call=True)
-
 
 
 def get_town_json_for_town(locations_field, location_id, county_json):
@@ -983,6 +1007,20 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     if town_longitude:
         print('...town_longitude: ' + str(town_longitude))
 
+    df_markers = load_state_historical_markers(selected_state)
+    df_town_markers = (
+        df_markers.loc[(df_markers['County'] == selected_county) & (df_markers['Town'] == selected_town)])
+
+    map = create_town_map_figure_px(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
+                                    selected_town, df_town_markers)
+
+    return map
+
+
+def create_town_map_figure_px(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
+                              selected_town, df_town_markers):
+    print('\nfunction create_town_map_figure_px for ' + selected_town)
+
     fig = px.choropleth_mapbox(df_town_data, geojson=town_json, locations=locations_field, color='Actual Pct',
                                color_continuous_scale=max_50_pct_color_scale,
                                mapbox_style="carto-positron",
@@ -994,6 +1032,102 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
                                )
     fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
     fig.update_coloraxes(colorbar_tickformat='.0%')
+
+    if len(df_town_markers) > 0:
+        fig.add_scattermapbox(
+            lat=df_town_markers['Latitude'],
+            lon=df_town_markers['Longitude'],
+            mode='markers+text',
+            text=df_town_markers['Marker Description'],
+            marker_size=25,
+            # marker_color='rgb(235, 0, 100)'
+            marker_color='green'
+        )
+
+    return fig
+
+
+def create_town_map_figure_px2(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
+                               selected_town, df_town_markers):
+    print('\nfunction create_town_map_figure_px2 for ' + selected_town)
+
+    fig = px.choropleth_mapbox(df_town_data, geojson=town_json, locations=locations_field, color='Actual Pct',
+                                color_continuous_scale=max_50_pct_color_scale,
+                                mapbox_style="carto-positron",
+                                zoom=town_zoom,
+                                center={"lat": town_latitude, "lon": town_longitude},
+                                opacity=0.5,
+                                range_color=[0, 1],
+                                hover_data={'County': True, 'Town': True, 'Actual Pct': ':.2%'},
+                                )
+
+    # smap = go.Scattermapbox(
+    #     lat=df_town_markers['Latitude'],
+    #     lon=df_town_markers['Longitude'],
+    #     mode='markers+text',
+    #     text=df_town_markers['Marker Description'],
+    #     # marker={'size': 25, 'mode': 'markers+text'},
+    #     marker={'size': 25},
+    #     # marker_color='rgb(235, 0, 100)'
+    # )
+    #
+    # fig = {
+    #     'data': [cmap, smap]
+    # }
+
+    if len(df_town_markers) > 0:
+        fig.add_scattermapbox(
+            lat=df_town_markers['Latitude'],
+            lon=df_town_markers['Longitude'],
+            mode='markers+text',
+            text=df_town_markers['Marker Description'],
+            marker_size=25,
+            # marker_color='rgb(235, 0, 100)'
+            marker_color='green'
+    )
+
+    # fig = fig.update_layout(
+    #     margin={"r": 1, "t": 1, "l": 1, "b": 1},
+    # )
+    # fig.update_coloraxes(colorbar_tickformat='.0%')
+
+    return fig
+
+
+def create_town_map_figure_go(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
+                              selected_town, df_town_markers):
+    print('\nfunction create_town_map_figure_px for ' + selected_town)
+    print(df_town_markers)
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Choroplethmapbox(geojson=town_json, locations=df_town_data[locations_field], z=df_town_data['Actual Pct'],
+                            colorscale=max_50_pct_color_scale, zmin=0, zmax=100,
+                            marker_opacity=0.5, marker_line_width=2))
+
+    # fig = go.Choroplethmapbox(geojson=town_json, locations=df_town_data[locations_field], z=df_town_data['Actual Pct'],
+    #                         colorscale=max_50_pct_color_scale, zmin=0, zmax=100,
+    #                         marker_opacity=0.5, marker_line_width=2)
+
+    if len(df_town_markers) > 0:
+        fig.add_scattermapbox(
+            lat=df_town_markers['Latitude'],
+            lon=df_town_markers['Longitude'],
+            mode='markers+text',
+            text=df_town_markers['Marker Description'],
+            marker_size=25,
+            # marker_color='rgb(235, 0, 100)'
+            marker_color='green'
+        )
+
+    mapbox_token = 'pk.eyJ1Ijoia2tsYXNtYW4iLCJhIjoiY2xpMXY0YTIxMTBtbjNkbXZuaDl1bGQwMiJ9.TKxKGNAQ0eG9d72g3w92yA'
+
+    fig.update_layout(mapbox_zoom=town_zoom,
+                      mapbox_center={'lat': town_latitude, 'lon': town_longitude})
+    fig = fig.update_layout(margin={"r": 1, "t": 1, "l": 1, "b": 1})
+    fig.update_coloraxes(colorbar_tickformat='.0%')
+    fig.update_mapboxes(accesstoken=mapbox_token)
+
     return fig
 
 
@@ -1046,7 +1180,7 @@ def map_clicked(clickData):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
-    # app.run_server(debug=False)
+    # app.run_server(debug=True)
+    app.run_server(debug=False)
     # Host  0.0.0.0 makes app visible on my private wifi to all devices.
     # app.run_server(host="0.0.0.0", port="8050")

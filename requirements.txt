@@ -4,3 +4,4 @@ pandas==2.0.3
 gunicorn
 dash-tools
 openpyxl
+plotly~=5.15.0
