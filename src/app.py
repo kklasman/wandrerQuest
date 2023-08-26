@@ -1011,7 +1011,7 @@ def create_town_map(selected_town, selected_state, selected_county, summary_data
     df_town_markers = (
         df_markers.loc[(df_markers['County'] == selected_county) & (df_markers['Town'] == selected_town)])
 
-    map = create_town_map_figure_px(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
+    map = create_town_map_figure_go(df_town_data, locations_field, town_json, town_latitude, town_longitude, town_zoom,
                                     selected_town, df_town_markers)
 
     return map
